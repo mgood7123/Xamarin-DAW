@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Reflection;
 using Xamarin.Forms;
 
@@ -34,6 +33,10 @@ namespace Xamarin_DAW
                 return error("failed to load Assembly File (Null)\nFile: " + path);
             }
 
+            if (a.ReflectionOnly)
+            {
+                return error("Assembly File was loaded into a reflection-only context\nFile: " + path);
+            }
 
             // Get the type to use.
             Type myType;
@@ -165,6 +168,7 @@ namespace Xamarin_DAW
 
             add_Button.Clicked += (sender, eventArgs) =>
             {
+                //View v = tryLoadLibrary("/Users/smallville7123/Projects/threeplatforms/test_plugin/bin/Debug/netstandard2.1/test_plugin.dll");
                 View v = tryLoadLibrary("/Users/smallville7123/Projects/Xamarin_DAW/Xamarin_DAW__Test_Plugin/bin/Debug/netstandard2.1/Xamarin_DAW__Test_Plugin.dll");
 
                 content.Content = v;
