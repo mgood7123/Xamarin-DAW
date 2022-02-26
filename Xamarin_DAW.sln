@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xamarin_DAW.MacOS", "Xamari
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xamarin_Daw__Plugin", "Xamarin_Daw__Plugin\Xamarin_Daw__Plugin.csproj", "{76BE0E0C-63C2-40B9-9491-94104AB11C30}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xamarin_DAW__Test_Plugin", "Xamarin_DAW__Test_Plugin\Xamarin_DAW__Test_Plugin.csproj", "{7B5030A6-3856-4A48-A5C1-FD25CD43F718}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,10 +27,6 @@ Global
 		{76BE0E0C-63C2-40B9-9491-94104AB11C30}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{76BE0E0C-63C2-40B9-9491-94104AB11C30}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{76BE0E0C-63C2-40B9-9491-94104AB11C30}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7B5030A6-3856-4A48-A5C1-FD25CD43F718}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7B5030A6-3856-4A48-A5C1-FD25CD43F718}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7B5030A6-3856-4A48-A5C1-FD25CD43F718}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7B5030A6-3856-4A48-A5C1-FD25CD43F718}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
