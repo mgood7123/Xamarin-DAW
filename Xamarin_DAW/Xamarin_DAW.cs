@@ -8,7 +8,7 @@ using Xamarin.Forms.Internals;
 
 namespace Xamarin_DAW
 {
-    public class Xamarin_DAW : Application
+    public partial class Xamarin_DAW : Application
     {
         class PluginManager
         {
@@ -110,7 +110,7 @@ namespace Xamarin_DAW
                 string space1 = "";
                 string space2 = "    ";
                 string space3 = "        ";
-                for (int i = 0; i < depth*3; i++)
+                for (int i = 0; i < depth * 3; i++)
                 {
                     space1 += "    ";
                     space2 += "    ";
@@ -134,7 +134,7 @@ namespace Xamarin_DAW
 
                 if (assembly.ReflectionOnly)
                 {
-                    return new (error(space1 + "Assembly File was loaded into a reflection-only context\n\nFile: " + assembly.Location));
+                    return new(error(space1 + "Assembly File was loaded into a reflection-only context\n\nFile: " + assembly.Location));
                 }
                 Console.WriteLine(space1 + "Assembly name: " + assembly.GetName().Name);
                 Console.WriteLine(space2 + "Assembly location:");
@@ -205,7 +205,7 @@ namespace Xamarin_DAW
                 {
                     Console.WriteLine(" None");
                 }
-                return new (assembly);
+                return new(assembly);
             }
 
             public void updatePluginList()
@@ -314,131 +314,17 @@ namespace Xamarin_DAW
 
         static PluginManager pluginManager = new();
 
-        StackLayout createTestView()
-        {
-            StackLayout buttons = new StackLayout();
-            buttons.Orientation = StackOrientation.Vertical;
-
-            Button add_Button = new Button()
-            {
-                Text = "add view"
-            };
-
-            Button remove_Button = new Button()
-            {
-                Text = "remove view"
-            };
-
-            buttons.Children.Add(add_Button);
-            buttons.Children.Add(remove_Button);
-
-            Frame content = new Frame();
-
-            add_Button.Clicked += (sender, eventArgs) =>
-            {
-                content.Content = new Button()
-                {
-                    Text = "I AM AN ADDED BUTTON"
-                };
-            };
-
-            remove_Button.Clicked += (sender, eventArgs) =>
-            {
-                content.Content = null;
-            };
-
-            StackLayout screenContent = new StackLayout();
-            screenContent.Orientation = StackOrientation.Vertical;
-            screenContent.Children.Add(content);
-            screenContent.Children.Add(buttons);
-            return screenContent;
-        }
-
-        StackLayout createTestPluginView()
-        {
-            StackLayout buttons = new StackLayout();
-            buttons.Orientation = StackOrientation.Vertical;
-
-            Button add_Button = new Button()
-            {
-                Text = "add plugin view"
-            };
-
-            Button remove_Button = new Button()
-            {
-                Text = "remove plugin view"
-            };
-
-            buttons.Children.Add(add_Button);
-            buttons.Children.Add(remove_Button);
-
-            Frame content = new Frame();
-
-            add_Button.Clicked += (sender, eventArgs) =>
-            {
-                string PLUGIN_PATH;
-                if (Plugin.is_Android)
-                {
-                    PLUGIN_PATH = "/data/local/tmp/Xamarin_DAW__Test_Plugin.dll";
-                }
-                else
-                {
-                    PLUGIN_PATH = "/Users/smallville7123/Projects/Xamarin_DAW__Test_Plugin/Xamarin_DAW__Test_Plugin/bin/Debug/netstandard2.1/Xamarin_DAW__Test_Plugin.dll";
-                }
-                View loaded = pluginManager.LoadFile(PLUGIN_PATH);
-                if (loaded != null)
-                {
-                    content.Content = loaded;
-                    return;
-                }
-                pluginManager.updatePluginList();
-
-                if (pluginManager.hasPlugins())
-                {
-                    if (pluginManager.hasLoadedPlugins())
-                    {
-                        content.Content = pluginManager.getLoadedPluginByIndex(0).onCreateView();
-                    }
-                    else
-                    {
-                        content.Content = pluginManager.instantiatePluginByIndex(0).onCreateView();
-                    }
-                }
-                else
-                {
-                    content.Content = PluginManager.VIEW__NO_PLUGINS_FOUND;
-                }
-            };
-
-            remove_Button.Clicked += (sender, eventArgs) =>
-            {
-                content.Content = null;
-            };
-
-            StackLayout screenContent = new StackLayout();
-            screenContent.Orientation = StackOrientation.Vertical;
-            screenContent.Children.Add(content);
-            screenContent.Children.Add(buttons);
-            return screenContent;
-        }
-
         public Xamarin_DAW()
         {
-            StackLayout screenContent = new StackLayout();
-            screenContent.Orientation = StackOrientation.Vertical;
+            AppDomain test = AppDomain.CreateDomain("Test");
+            Console.WriteLine("created test domain: " + test);
+            AppDomain.Unload(test);
+            Console.WriteLine("unloaded test domain");
 
-            screenContent.Children.Add(createTestView());
-            screenContent.Children.Add(createTestPluginView());
-
-            ContentPage screen = new ContentPage();
-            screen.Content = screenContent;
-
-            MainPage = screen;
-        }
-
-        private void Add_Button_Clicked(object sender, EventArgs e)
-        {
-            throw new NotImplementedException();
+            //ContentPage screen = new ContentPage();
+            //screen.Content = TestUI.createUI();
+            //MainPage = screen;
+            MainPage = new MyPage();
         }
 
         protected override void OnStart()

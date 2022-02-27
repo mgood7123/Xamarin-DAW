@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    xmlns="http://xamarin.com/schemas/2014/forms"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:xct="http://xamarin.com/schemas/2020/toolkit"
+    x:Class="Xamarin_DAW.MyPage">
+    <ContentPage.Content>
+        <xct:DockLayout>
+            <ContentView xct:DockLayout.Dock="Top" HeightRequest="20">
+                <Label Text="TOP CONTROLS" />
+            </ContentView>
+            <xct:DockLayout xct:DockLayout.Dock="Bottom">
+                <ContentView xct:DockLayout.Dock="Left" WidthRequest="80" VerticalOptions="Fill">
+                    <Label Text="FILE PANEL"/>
+                </ContentView>
+                <ContentView>
+                    <Button/>
+                </ContentView>
+            </xct:DockLayout>
+        </xct:DockLayout>
+    </ContentPage.Content>
+</ContentPage>

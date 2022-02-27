@@ -6,8 +6,27 @@
 
   <ItemGroup>
     <None Remove="Xamarin.Forms" />
+    <None Remove="DevExpress.XamarinForms.Charts" />
+    <None Remove="DevExpress.XamarinForms.CollectionView" />
+    <None Remove="DevExpress.XamarinForms.Editors" />
+    <None Remove="DevExpress.XamarinForms.Grid" />
+    <None Remove="DevExpress.XamarinForms.Navigation" />
+    <None Remove="DevExpress.XamarinForms.Scheduler" />
+    <None Remove="DevExpress.Xpo" />
+    <None Remove="DevExpress.Xpo.Extensions" />
+    <None Remove="Xamarin.Forms.InputKit" />
+    <None Remove="XamPane" />
+    <None Remove="Xamanimation" />
+    <None Remove="Xamarin.CommunityToolkit" />
+    <None Remove="Xam.Animations" />
+    <None Remove="System.Reflection.Emit.Lightweight" />
+    <None Remove="System.Threading.Tasks.Extensions" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2337" />
+    <PackageReference Include="Xamarin.Forms.InputKit" Version="3.7.2" />
+    <PackageReference Include="Xamarin.CommunityToolkit" Version="2.0.0" />
+    <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
   </ItemGroup>
 </Project>
