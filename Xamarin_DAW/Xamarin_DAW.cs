@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Xamarin.Forms;
 using Xamarin.Forms.Internals;
+using Xamarin.Forms.PlatformConfiguration;
 
 namespace Xamarin_DAW
 {
@@ -299,6 +301,7 @@ namespace Xamarin_DAW
                 {
                     return null;
                 }
+
                 Plugin plugin_ = (Plugin)Activator.CreateInstance(plugin);
                 if (loadedPlugins == null) loadedPlugins = new();
                 loadedPlugins.Add(plugin_);
@@ -375,8 +378,16 @@ namespace Xamarin_DAW
 
             add_Button.Clicked += (sender, eventArgs) =>
             {
-
-                View loaded = pluginManager.LoadFile("/Users/smallville7123/Projects/Xamarin_DAW__Test_Plugin/Xamarin_DAW__Test_Plugin/bin/Debug/netstandard2.1/Xamarin_DAW__Test_Plugin.dll");
+                string PLUGIN_PATH;
+                if (Plugin.is_Android)
+                {
+                    PLUGIN_PATH = "/data/local/tmp/Xamarin_DAW__Test_Plugin.dll";
+                }
+                else
+                {
+                    PLUGIN_PATH = "/Users/smallville7123/Projects/Xamarin_DAW__Test_Plugin/Xamarin_DAW__Test_Plugin/bin/Debug/netstandard2.1/Xamarin_DAW__Test_Plugin.dll";
+                }
+                View loaded = pluginManager.LoadFile(PLUGIN_PATH);
                 if (loaded != null)
                 {
                     content.Content = loaded;
