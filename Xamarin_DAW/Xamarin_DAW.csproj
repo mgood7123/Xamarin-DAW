@@ -18,6 +18,6 @@
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2337" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Xamarin_Daw__Plugin\Xamarin_Daw__Plugin.csproj" />
+    <ProjectReference Include="..\Xamarin_DAW.Plugin\Xamarin_DAW.Plugin.csproj" />
   </ItemGroup>
 </Project>

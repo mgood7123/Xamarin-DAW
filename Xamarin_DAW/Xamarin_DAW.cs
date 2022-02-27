@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Xamarin.Forms;
 using Xamarin.Forms.Internals;
-using Xamarin.Forms.PlatformConfiguration;
 
 namespace Xamarin_DAW
 {
@@ -426,8 +424,6 @@ namespace Xamarin_DAW
 
         public Xamarin_DAW()
         {
-            //InitializeComponent();
-
             StackLayout screenContent = new StackLayout();
             screenContent.Orientation = StackOrientation.Vertical;
 
