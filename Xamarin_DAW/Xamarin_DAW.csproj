@@ -7,17 +7,27 @@
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Xamarin.Forms" />
+    <None Remove="UI\" />
+    <None Remove="UI\Utils\" />
+    <None Remove="Skia_UI_Kit\" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2337" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Xamarin_DAW.Plugin\Xamarin_DAW.Plugin.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="UI\" />
+    <Folder Include="UI\Utils\" />
+    <Folder Include="Skia_UI_Kit\" />
   </ItemGroup>
 </Project>

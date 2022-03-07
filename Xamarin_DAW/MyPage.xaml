@@ -2,21 +2,92 @@
 <ContentPage
     xmlns="http://xamarin.com/schemas/2014/forms"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:xct="http://xamarin.com/schemas/2020/toolkit"
-    x:Class="Xamarin_DAW.MyPage">
+    xmlns:Xamarin_DAW_UI="clr-namespace:Xamarin_DAW.UI"
+    xmlns:Xamarin_DAW="clr-namespace:Xamarin_DAW"
+    xmlns:skia_ui_kit="clr-namespace:Xamarin_DAW.Skia_UI_Kit"
+    x:Class="Xamarin_DAW.MyPage"
+
+    BackgroundColor="#2C3E50"
+    >
+    <!--LineageOS color code: #167C80-->
+    <!--Xamarin   color code: #2C3E50-->
     <ContentPage.Content>
-        <xct:DockLayout>
-            <ContentView xct:DockLayout.Dock="Top" HeightRequest="20">
-                <Label Text="TOP CONTROLS" />
+        <skia_ui_kit:SkiaViewHost/>
+        <!--<Xamarin_DAW_UI:WindowManager
+            BackgroundColor="Green"
+            VerticalOptions="FillAndExpand"
+            HorizontalOptions="FillAndExpand"
+        >
+            <Xamarin_DAW_UI:WindowView
+                HeightRequest="200"
+                WidthRequest="200"
+                ResizeTouchZone="100"
+            >
+                <BoxView Color="Red"/>
+                <ContentView
+                    VerticalOptions="FillAndExpand"
+                    HorizontalOptions="FillAndExpand"
+                >
+                    <Xamarin_DAW_UI:MultiTouchFrame
+                        BackgroundColor="Green"
+                        VerticalOptions="FillAndExpand"
+                        HorizontalOptions="FillAndExpand"
+                    />
+                </ContentView>
+            </Xamarin_DAW_UI:WindowView>
+        </Xamarin_DAW_UI:WindowManager>-->
+        <!--<StackLayout
+            Orientation="Vertical"
+        >
+            <ContentView
+                HeightRequest="20"
+                HorizontalOptions="FillAndExpand"
+                VerticalOptions="Start"
+            >
+                <Label
+                    Text="TOP CONTROLS"
+                    HorizontalTextAlignment="Center"
+                    VerticalTextAlignment="Center"
+                />
             </ContentView>
-            <xct:DockLayout xct:DockLayout.Dock="Bottom">
-                <ContentView xct:DockLayout.Dock="Left" WidthRequest="80" VerticalOptions="Fill">
-                    <Label Text="FILE PANEL"/>
-                </ContentView>
-                <ContentView>
-                    <Button/>
-                </ContentView>
-            </xct:DockLayout>
-        </xct:DockLayout>
+            <StackLayout
+                Orientation="Horizontal"
+                VerticalOptions="FillAndExpand"
+                HorizontalOptions="FillAndExpand"
+            >
+                <Xamarin_DAW_UI:FileView
+                    x:Name="FileView"
+                    VerticalOptions="FillAndExpand"
+                    BackgroundColor="Red"
+                />
+
+                <Xamarin_DAW_UI:MultiTouchFrame
+                    BackgroundColor="Green"
+                    VerticalOptions="FillAndExpand"
+                    HorizontalOptions="FillAndExpand"
+                />
+                <Xamarin_DAW_UI:WindowManager
+                    BackgroundColor="Green"
+                    VerticalOptions="FillAndExpand"
+                    HorizontalOptions="FillAndExpand"
+                >
+                    <Xamarin_DAW_UI:WindowView
+                        HeightRequest="400"
+                        WidthRequest="400"
+                    >
+                        <ContentView
+                            VerticalOptions="FillAndExpand"
+                            HorizontalOptions="FillAndExpand"
+                        >
+                            <Xamarin_DAW_UI:MultiTouchFrame
+                                BackgroundColor="Green"
+                                VerticalOptions="FillAndExpand"
+                                HorizontalOptions="FillAndExpand"
+                            />
+                        </ContentView>
+                    </Xamarin_DAW_UI:WindowView>
+                </Xamarin_DAW_UI:WindowManager>
+            </StackLayout>
+        </StackLayout>-->
     </ContentPage.Content>
 </ContentPage>

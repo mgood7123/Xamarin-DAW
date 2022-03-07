@@ -1,4 +1,5 @@
-﻿using Xamarin.Forms;
+﻿using System;
+using Xamarin.Forms;
 
 namespace Xamarin_DAW
 {
@@ -70,7 +71,7 @@ namespace Xamarin_DAW
                 add_Button.Clicked += (sender, eventArgs) =>
                 {
                     string PLUGIN_PATH;
-                    if (Plugin.is_Android)
+                    if (Plugin.Is_Android)
                     {
                         PLUGIN_PATH = "/data/local/tmp/Xamarin_DAW__Test_Plugin.dll";
                     }
@@ -132,6 +133,11 @@ namespace Xamarin_DAW
                 screenContent.Children.Add(ui.createTestPluginView());
                 return screenContent;
             }
+        }
+
+        public void hasStoragePermission(bool v)
+        {
+            pluginManager.hasStoragePermission(v);
         }
     }
 }

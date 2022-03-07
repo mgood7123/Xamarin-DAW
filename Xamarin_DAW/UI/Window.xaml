@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    xmlns="http://xamarin.com/schemas/2014/forms"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Xamarin_DAW.UI.Window">
+    <ContentView
+        x:Name="ResizeGestureContainer"
+        Padding="-10"
+    >
+        <ContentView.GestureRecognizers>
+            <PanGestureRecognizer PanUpdated="OnWindowPanned"/>
+        </ContentView.GestureRecognizers>
+        <ContentView
+            x:Name="TitleBarContainer"
+        >
+            <ContentView.GestureRecognizers>
+                <PanGestureRecognizer PanUpdated="OnWindowPanned"/>
+            </ContentView.GestureRecognizers>
+            <ContentView
+                x:Name="WindowContainer"
+            >
+            <ContentView
+                Padding="10"
+            >
+                <StackLayout
+                    Orientation="Vertical"
+                    VerticalOptions="Fill"
+                    Spacing="0"
+                >
+                    <Frame
+                        HasShadow="false"
+                        BorderColor="Black"
+                        Padding="0"
+                        CornerRadius="0"
+                    >
+                        <FlexLayout
+                            x:Name="TitleBar"
+                            Direction="Row"
+                            BackgroundColor="Blue"
+                            HeightRequest="20"
+                        >
+                            <FlexLayout
+                                Direction="Row"
+                                MinimumWidthRequest="60" WidthRequest="60"
+                                HorizontalOptions="StartAndExpand"
+                            >
+                                <BoxView x:Name="CloseButton" CornerRadius="10" Color="Red"/>
+                                <BoxView x:Name="MinimizeButton" CornerRadius="10" Color="Orange"/>
+                                <BoxView x:Name="MaximizeRestoreButton" CornerRadius="10" Color="Green"/>
+                            </FlexLayout>
+                            <Label
+                                x:Name="WindowTitle"
+                                Text="Window"
+                                HorizontalTextAlignment="Start"
+                                HorizontalOptions="StartAndExpand"
+                            />
+                        </FlexLayout>
+                    </Frame>
+                    <Frame
+                        HasShadow="false"
+                        BorderColor="Black"
+                        Padding="0"
+                        CornerRadius="0"
+                        VerticalOptions="FillAndExpand"
+                    >
+                        <ContentView
+                            x:Name="MainContent"
+                            VerticalOptions="FillAndExpand"
+                            BackgroundColor="DimGray"
+                        >
+                            <ScrollView Orientation="Both">
+                            <FlexLayout Direction="Column">
+                            <Label Text="Line 1"/>
+                            <Label Text="Line 2"/>
+                            <Label Text="Line 3"/>
+                            <Label Text="Line 4"/>
+                            <Label Text="Line 5"/>
+                            <Label Text="Line 6"/>
+                            <Label Text="Line 7"/>
+                            <Label Text="The following line is visible"/>
+                            <Label Text="&lt;---I---AM----VISIBLE---&gt;"/>
+                            </FlexLayout>
+                            </ScrollView>
+                        </ContentView>
+                    </Frame>
+                </StackLayout>
+            </ContentView>
+        </ContentView>
+        </ContentView>
+    </ContentView>
+</ContentView>

@@ -21,6 +21,16 @@
     <None Remove="Xam.Animations" />
     <None Remove="System.Reflection.Emit.Lightweight" />
     <None Remove="System.Threading.Tasks.Extensions" />
+    <None Remove="Xamarin.Forms.AnimationsPack" />
+    <None Remove="Ammy.XamarinForms" />
+    <None Remove="MessagePack" />
+    <None Remove="SkiaSharp" />
+    <None Remove="Topten.RichTextKit" />
+    <None Remove="SkiaSharp.Views" />
+    <None Remove="SkiaSharp.Views.Forms" />
+    <None Remove="SkiaSharp.Svg" />
+    <None Remove="SkiaSharp.Extended" />
+    <None Remove="Xamarin.Essentials" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2337" />
@@ -28,5 +38,13 @@
     <PackageReference Include="Xamarin.CommunityToolkit" Version="2.0.0" />
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+    <PackageReference Include="Xamarin.Forms.AnimationsPack" Version="1.0.1" />
+    <PackageReference Include="MessagePack" Version="2.3.85" />
+    <PackageReference Include="SkiaSharp" Version="2.80.3" />
+    <PackageReference Include="Topten.RichTextKit" Version="0.4.151" />
+    <PackageReference Include="SkiaSharp.Views.Forms" Version="2.80.3" />
+    <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
+    <PackageReference Include="SkiaSharp.Extended" Version="1.60.0" />
+    <PackageReference Include="Xamarin.Essentials" Version="1.7.1" />
   </ItemGroup>
 </Project>

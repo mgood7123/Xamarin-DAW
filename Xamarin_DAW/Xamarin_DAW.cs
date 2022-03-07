@@ -10,6 +10,12 @@ namespace Xamarin_DAW
 {
     public partial class Xamarin_DAW : Application
     {
+
+        public void setDensity(double density)
+        {
+            Plugin.XAMARIN_DAW_INTERNAL_USE_ONLY_SCREEN_DENSITY_SETTER = density;
+        }
+
         class PluginManager
         {
             IEnumerable<Type> plugins;
@@ -208,6 +214,10 @@ namespace Xamarin_DAW
                 return new(assembly);
             }
 
+            internal void hasStoragePermission(bool v)
+            {
+            }
+
             public void updatePluginList()
             {
                 var type = typeof(Plugin);
@@ -314,32 +324,56 @@ namespace Xamarin_DAW
 
         static PluginManager pluginManager = new();
 
-        public Xamarin_DAW()
-        {
-            AppDomain test = AppDomain.CreateDomain("Test");
-            Console.WriteLine("created test domain: " + test);
-            AppDomain.Unload(test);
-            Console.WriteLine("unloaded test domain");
+        Skia_UI_Kit.Application application;
 
-            //ContentPage screen = new ContentPage();
-            //screen.Content = TestUI.createUI();
-            //MainPage = screen;
-            MainPage = new MyPage();
+        class MyApp : Skia_UI_Kit.Application
+        {
+            public override void OnCreate()
+            {
+                Skia_UI_Kit.Box boxView = new Skia_UI_Kit.Box()
+                {
+                    layoutParams = new() {
+                        width = 40,
+                        height = 40
+                    }
+                };
+                SetContentView(boxView);
+            }
         }
 
         protected override void OnStart()
         {
+            application = new MyApp();
+
             // Handle when your app starts
+            AppDomain test = AppDomain.CreateDomain("Test");
+            //Console.WriteLine("created test domain: " + test);
+            AppDomain.Unload(test);
+            //Console.WriteLine("unloaded test domain");
+
+            //ContentPage screen = new ContentPage();
+            //screen.Content = TestUI.createUI();
+            //MainPage = screen;
+
+            //MainPage = new MyPage();
+            MainPage = new MyPage()
+            {
+                Content = new Skia_UI_Kit.SkiaViewHost
+                {
+                    Application = application
+                }
+            };
+            application.OnCreate();
         }
 
         protected override void OnSleep()
         {
-            // Handle when your app sleeps
+            application.OnPause();
         }
 
         protected override void OnResume()
         {
-            // Handle when your app resumes
+            application.OnResume();
         }
     }
 }

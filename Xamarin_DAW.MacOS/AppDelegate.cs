@@ -21,12 +21,27 @@ namespace Xamarin_DAW.MacOS
             _window.Title = "Xamarin DAW";
         }
 
+        Xamarin_DAW daw;
+
         public override void DidFinishLaunching(NSNotification notification)
         {
             Forms.Init();
-            LoadApplication(new Xamarin_DAW());
+            daw = new Xamarin_DAW();
+
+            // workaround for https://github.com/xamarin/Essentials/issues/1679
+            daw.setDensity(NSScreen.MainScreen.UserSpaceScaleFactor);
+
+            daw.hasStoragePermission(true);
+            LoadApplication(daw);
             base.DidFinishLaunching(notification);
         }
+
+
+
+        //private void DeviceDisplay_MainDisplayInfoChanged(object sender, DisplayInfoChangedEventArgs e)
+        //{
+        //    daw.setDensity(e.DisplayInfo.Density);
+        //}
 
         public override void WillTerminate(NSNotification notification)
         {
