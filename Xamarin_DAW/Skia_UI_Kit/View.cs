@@ -350,6 +350,14 @@ namespace Xamarin_DAW.Skia_UI_Kit
         internal AttachInfo mAttachInfo;
 
         /**
+         * The layout insets in pixels, that is the distance in pixels between the
+         * visible edges of this view its bounds.
+         */
+        private Insets mLayoutInsets;
+
+        private static float[] sDebugLines;
+
+        /**
          * Count of how many windows this view has been attached to.
          */
         int mWindowAttachCount = 0;
@@ -4209,7 +4217,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return (int)(dips * scale + 0.5f);
         }
 
-        private static readonly SKColorF DEBUG_CORNERS_COLOR = new SKColorF(63, 127, 255);
+        private static readonly SKColor DEBUG_CORNERS_COLOR = new SKColor(63, 127, 255);
 
         internal const int DEBUG_CORNERS_SIZE_DIP = 8;
 
@@ -5319,10 +5327,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //// Step 7, draw the default focus highlight
             //drawDefaultFocusHighlight(canvas);
 
-            //if (isShowingLayoutBounds())
-            //{
-            //    debugDrawFocus(canvas);
-            //}
+            if (isShowingLayoutBounds())
+            {
+                debugDrawFocus(canvas);
+            }
         }
 
         protected virtual void OnDraw(SKCanvas canvas)
@@ -7707,8 +7715,37 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return mChildren[index];
         }
 
+        Insets computeOpticalInsets()
+        {
+            return Insets.NONE; // (mBackground == null) ? Insets.NONE : mBackground.getOpticalInsets();
+        }
 
+        /**
+         * @hide
+         */
+        public Insets getOpticalInsets()
+        {
+            if (mLayoutInsets == null)
+            {
+                mLayoutInsets = computeOpticalInsets();
+            }
+            return mLayoutInsets;
+        }
 
+        /**
+         * Set this view's optical insets.
+         *
+         * <p>This method should be treated similarly to setMeasuredDimension and not as a general
+         * property. Views that compute their own optical insets should call it as part of measurement.
+         * This method does not request layout. If you are setting optical insets outside of
+         * measure/layout itself you will want to call requestLayout() yourself.
+         * </p>
+         * @hide
+         */
+        public void setOpticalInsets(Insets insets)
+        {
+            mLayoutInsets = insets;
+        }
 
 
         private static void fillRect(SKCanvas canvas, SKPaint paint, int x1, int y1, int x2, int y2) {
@@ -7765,6 +7802,37 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
+        private static void drawRect(SKCanvas canvas, SKPaint paint, int x1, int y1, int x2, int y2)
+        {
+            if (sDebugLines == null)
+            {
+                // TODO: This won't work with multiple UI threads in a single process
+                sDebugLines = new float[16];
+            }
+
+            sDebugLines[0] = x1;
+            sDebugLines[1] = y1;
+            sDebugLines[2] = x2;
+            sDebugLines[3] = y1;
+
+            sDebugLines[4] = x2;
+            sDebugLines[5] = y1;
+            sDebugLines[6] = x2;
+            sDebugLines[7] = y2;
+
+            sDebugLines[8] = x2;
+            sDebugLines[9] = y2;
+            sDebugLines[10] = x1;
+            sDebugLines[11] = y2;
+
+            sDebugLines[12] = x1;
+            sDebugLines[13] = y2;
+            sDebugLines[14] = x1;
+            sDebugLines[15] = y1;
+
+            canvas.DrawLines(sDebugLines, paint);
+        }
+
         /**
          * @hide
          */
@@ -7772,23 +7840,23 @@ namespace Xamarin_DAW.Skia_UI_Kit
             SKPaint paint = getDebugPaint();
 
             // Draw optical bounds
-            //{
-            //    paint.ColorF = SKColors.Red;
-            //    paint.Style = SKPaintStyle.Stroke;
+            {
+                paint.ColorF = SKColors.Red;
+                paint.Style = SKPaintStyle.Stroke;
 
-            //    for (int i = 0; i < getChildCount(); i++) {
-            //        View c = getChildAt(i);
-            //        if (c.getVisibility() != View.GONE) {
-            //            Insets insets = c.getOpticalInsets();
+                for (int i = 0; i < getChildCount(); i++) {
+                    View c = getChildAt(i);
+                    if (c.getVisibility() != View.GONE) {
+                        Insets insets = c.getOpticalInsets();
 
-            //            drawRect(canvas, paint,
-            //                    c.getLeft() + insets.left,
-            //                    c.getTop() + insets.top,
-            //                    c.getRight() - insets.right - 1,
-            //                    c.getBottom() - insets.bottom - 1);
-            //        }
-            //    }
-            //}
+                        drawRect(canvas, paint,
+                                c.getLeft() + insets.left,
+                                c.getTop() + insets.top,
+                                c.getRight() - insets.right - 1,
+                                c.getBottom() - insets.bottom - 1);
+                    }
+                }
+            }
 
             // Draw margins
             {

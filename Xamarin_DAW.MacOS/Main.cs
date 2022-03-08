@@ -8,6 +8,7 @@ namespace Xamarin_DAW.MacOS
         {
             NSApplication.Init();
             NSApplication.SharedApplication.Delegate = new AppDelegate();
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
             NSApplication.Main(args);
         }
     }

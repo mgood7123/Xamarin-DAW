@@ -3,7 +3,7 @@ using SkiaSharp;
 
 namespace Xamarin_DAW.Skia_UI_Kit
 {
-	public static class SKCanvasExtensions
+    public static class SKCanvasExtensions
 	{
 		internal static void setIsHardwareAccelerated(this SKCanvas this_canvas, bool value)
 		{
@@ -65,12 +65,12 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
 		public static int getWidth(this SKCanvas this_canvas)
         {
-			return (int)this_canvas.ExtensionProperties_GetValue("Width", this_canvas.LocalClipBounds.Width);
+			return (int)this_canvas.ExtensionProperties_GetValue("Width", 0);
 		}
 
 		public static int getHeight(this SKCanvas this_canvas)
 		{
-			return (int)this_canvas.ExtensionProperties_GetValue("Height", this_canvas.LocalClipBounds.Height);
+			return (int)this_canvas.ExtensionProperties_GetValue("Height", 0);
 		}
 
 		// <summary>Draws a canvas on this canvas.</summary>
@@ -174,5 +174,48 @@ namespace Xamarin_DAW.Skia_UI_Kit
 			canvas.ClipRect(new SKRect(left, top, right, bottom));
         }
 
-    }
+		/**
+		 * Draw a series of lines. Each line is taken from 4 consecutive values in the pts array. Thus
+		 * to draw 1 line, the array must contain at least 4 values. This is logically the same as
+		 * drawing the array as follows: drawLine(pts[0], pts[1], pts[2], pts[3]) followed by
+		 * drawLine(pts[4], pts[5], pts[6], pts[7]) and so on.
+		 *
+		 * @param pts Array of points to draw [x0 y0 x1 y1 x2 y2 ...]
+		 * @param offset Number of values in the array to skip before drawing.
+		 * @param count The number of values in the array to process, after skipping "offset" of them.
+		 *            Since each line uses 4 values, the number of "lines" that are drawn is really
+		 *            (count >> 2).
+		 * @param paint The paint used to draw the points
+		 */
+		static public void drawLines(this SKCanvas canvas, float[] points, int offset, int count, SKPaint paint) {
+			if ((offset | count) < 0 || count < 2 || offset + count > points.Length)
+			{
+				return;
+			}
+
+			int countDoubled = count * 2;
+
+			// convert the floats into SkPoints
+			count >>= 1;  // now it is the number of points
+
+			SKPoint[] pts = (new SKPoint[count]);
+
+			int pi = offset;
+			for (int i = 0; i < count; i++)
+			{
+				if (pi >= countDoubled) break;
+
+				pts[i].Set(points[pi + 0], points[pi + 1]);
+
+				pi += 2;
+			}
+
+			canvas.DrawPoints(SKPointMode.Lines, pts, paint);
+		}
+
+		public static void DrawLines(this SKCanvas canvas, float[] points, SKPaint paint)
+		{
+			canvas.drawLines(points, 0, points.Length, paint);
+		}
+	}
 }

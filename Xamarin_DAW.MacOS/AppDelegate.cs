@@ -14,7 +14,7 @@ namespace Xamarin_DAW.MacOS
 
         public AppDelegate()
         {
-            var style = NSWindowStyle.Miniaturizable | NSWindowStyle.Resizable | NSWindowStyle.Titled;
+            var style = NSWindowStyle.Closable | NSWindowStyle.Miniaturizable | NSWindowStyle.Resizable | NSWindowStyle.Titled;
 
             var rect = new CoreGraphics.CGRect(200, 200, 800, 600);
             _window = new NSWindow(rect, style, NSBackingStore.Buffered, false);
@@ -43,9 +43,10 @@ namespace Xamarin_DAW.MacOS
         //    daw.setDensity(e.DisplayInfo.Density);
         //}
 
-        public override void WillTerminate(NSNotification notification)
+        public override bool ApplicationShouldTerminateAfterLastWindowClosed(NSApplication sender)
         {
-            Application.Current.Quit();
+            return true;
         }
+
     }
 }
