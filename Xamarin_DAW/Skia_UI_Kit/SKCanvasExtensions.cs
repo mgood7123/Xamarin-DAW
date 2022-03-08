@@ -3,15 +3,29 @@ using SkiaSharp;
 
 namespace Xamarin_DAW.Skia_UI_Kit
 {
-    public static class SKCanvasExtensions
+	public static class SKCanvasExtensions
 	{
-		/// <summary>Returns true if this canvas is Hardware Accelerated.</summary>
+		internal static void setIsHardwareAccelerated(this SKCanvas this_canvas, bool value)
+		{
+			this_canvas.ExtensionProperties_SetValue("HardwareAccelerated", value);
+		}
+
+		internal static void DisposeSurface(this SKCanvas this_canvas)
+		{
+			SKSurface s = (SKSurface)this_canvas.ExtensionProperties_GetValue("Surface", null);
+			if (s != null)
+			{
+				s.Dispose();
+			}
+		}
+
+		// <summary>Returns true if this canvas is Hardware Accelerated.</summary>
 		public static bool isHardwareAccelerated(this SKCanvas this_canvas)
 		{
 			return (bool)this_canvas.ExtensionProperties_GetValue("HardwareAccelerated", false);
 		}
 
-		/// <summary>Creates a Hardware Accelerated canvas.</summary>
+		// <summary>Creates a Hardware Accelerated canvas.</summary>
 		public static SKCanvas CreateHardwareAcceleratedCanvas(this SKCanvas this_canvas, GRContext context, int width, int height)
 		{
 			SKSurface s = SKSurface.Create(context, false, new SKImageInfo(width, height));
@@ -24,7 +38,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 			return c;
 		}
 
-		/// <summary>Creates a software canvas, this is not Hardware Accelerated.</summary>
+		// <summary>Creates a software canvas, this is not Hardware Accelerated.</summary>
 		public static SKCanvas CreateSoftwareCanvas(this SKCanvas this_canvas, int width, int height)
 		{
             SKCanvas c = new SKCanvas(new SKBitmap(width, height));
@@ -33,8 +47,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 			return c;
 		}
 
-		/// <summary>Creates a canvas, whether the created canvas is Hardware Accelerated or not depends
-        /// on the canvas of which this method is invoked from.</summary>
+		// <summary>Creates a canvas, whether the created canvas is Hardware Accelerated or not depends
+        // on the canvas of which this method is invoked from.</summary>
 		public static SKCanvas CreateCanvas(this SKCanvas this_canvas, int width, int height)
 		{
 			if (this_canvas.isHardwareAccelerated())
@@ -49,29 +63,29 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
 		}
 
-		public static int Width(this SKCanvas this_canvas)
+		public static int getWidth(this SKCanvas this_canvas)
         {
 			return (int)this_canvas.ExtensionProperties_GetValue("Width", this_canvas.LocalClipBounds.Width);
 		}
 
-		public static int Height(this SKCanvas this_canvas)
+		public static int getHeight(this SKCanvas this_canvas)
 		{
 			return (int)this_canvas.ExtensionProperties_GetValue("Height", this_canvas.LocalClipBounds.Height);
 		}
 
-		/// <summary>Draws a canvas on this canvas.</summary>
+		// <summary>Draws a canvas on this canvas.</summary>
 		public static void DrawCanvas(this SKCanvas this_canvas, SKCanvas canvas, SKPaint paint = null) => canvas.DrawToCanvas(this_canvas, 0, 0, paint);
 
-		/// <summary>Draws a canvas on this canvas.</summary>
+		// <summary>Draws a canvas on this canvas.</summary>
 		public static void DrawCanvas(this SKCanvas this_canvas, SKCanvas canvas, int x, int y, SKPaint paint = null) => canvas.DrawToCanvas(this_canvas, x, y, paint);
 
-		/// <summary>Draws a canvas on this canvas.</summary>
+		// <summary>Draws a canvas on this canvas.</summary>
 		public static void DrawCanvas(this SKCanvas this_canvas, SKCanvas canvas, SKPoint point, SKPaint paint = null) => canvas.DrawToCanvas(this_canvas, point, paint);
 
-		/// <summary>Draws this canvas to a canvas.</summary>
+		// <summary>Draws this canvas to a canvas.</summary>
 		public static void DrawToCanvas(this SKCanvas this_canvas, SKCanvas canvas, SKPaint paint = null) => this_canvas.DrawToCanvas(canvas, 0, 0, paint);
 
-        /// <summary>Draws this canvas to a canvas.</summary>
+        // <summary>Draws this canvas to a canvas.</summary>
         public static void DrawToCanvas(this SKCanvas this_canvas, SKCanvas canvas, int x, int y, SKPaint paint = null)
 		{
 			if (this_canvas.isHardwareAccelerated())
@@ -82,7 +96,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 			}
 		}
 
-		/// <summary>Draws this canvas to a canvas.</summary>
+		// <summary>Draws this canvas to a canvas.</summary>
 		public static void DrawToCanvas(this SKCanvas this_canvas, SKCanvas canvas, SKPoint point, SKPaint paint = null)
 		{
 			if (this_canvas.isHardwareAccelerated())

@@ -31,8 +31,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
 
     [Xamarin.Forms.ContentProperty(nameof(Children))]
-    public partial class View : Xamarin.Forms.BindableObject, Parent
+    public class View : Xamarin.Forms.BindableObject, Parent
     {
+        /**
+         * Always return a size of 0 for MeasureSpec values with a mode of UNSPECIFIED
+         */
+        const bool sUseZeroUnspecifiedMeasureSpec = false; // always false
+
         public View()
         {
             initView();
@@ -51,23 +56,25 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         public void INTERNAL_ERROR(string error)
         {
-            Parent p = mParent;
-            while (p != null)
-            {
-                if (p is Application)
-                {
-                    ((Application)p).INTERNAL_ERROR(error);
-                    break;
-                }
-                else if (p is View)
-                {
-                    p = ((View)p).mParent;
-                }
-                else
-                {
-                    break;
-                }
-            }
+            throw new Exception(error);
+
+            //Parent p = mParent;
+            //while (p != null)
+            //{
+            //    if (p is Application)
+            //    {
+            //        ((Application)p).INTERNAL_ERROR(error);
+            //        break;
+            //    }
+            //    else if (p is View)
+            //    {
+            //        p = ((View)p).mParent;
+            //    }
+            //    else
+            //    {
+            //        break;
+            //    }
+            //}
         }
 
 
@@ -78,11 +85,9 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public Parent mParent { get; private set; }
         Parent Parent.getParent() => mParent;
         public Gravity gravity = Gravity.GRAVITY_NONE;
-        public LayoutParams layoutParams { get; set; }
+        public LayoutParams mLayoutParams { get; set; }
         public int MeasuredWidth { get; protected set; }
         public int MeasuredHeight { get; protected set; }
-        public int Width => r;
-        public int Height => b;
 
         private int l = 0, t = 0, r = 0, b = 0;
 
@@ -96,18 +101,18 @@ namespace Xamarin_DAW.Skia_UI_Kit
             GRAVITY_RIGHT
         };
 
-        public void Invalidate()
+        public void invalidate()
         {
             invalidated = true;
             if (mParent is not null)
             {
                 if (mParent is View view)
                 {
-                    view.Invalidate();
+                    view.invalidate();
                 }
                 else if (mParent is Application application)
                 {
-                    application.Invalidate();
+                    application.invalidate();
                 }
             }
         }
@@ -1046,7 +1051,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return (int)(a | ((uint)b & c));
         }
 
-        public void Measure(int widthMeasureSpec, int heightMeasureSpec)
+        public void measure(int widthMeasureSpec, int heightMeasureSpec)
         {
             // Suppress sign extension for the low bytes
             long key = (long)widthMeasureSpec << 32 | heightMeasureSpec & 0xffffffffL;
@@ -1238,29 +1243,196 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         }
 
-        public virtual void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+        /**
+         * Ask all of the children of this view to measure themselves, taking into
+         * account both the MeasureSpec requirements for this view and its padding.
+         * We skip children that are in the GONE state The heavy lifting is done in
+         * getChildMeasureSpec.
+         *
+         * @param widthMeasureSpec The width requirements for this view
+         * @param heightMeasureSpec The height requirements for this view
+         */
+        protected void measureChildren(int widthMeasureSpec, int heightMeasureSpec)
         {
-            setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
-                getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
-
-            if (Children.Count > 0)
+            int size = mChildrenCount;
+            View[] children = mChildren;
+            for (int i = 0; i < size; ++i)
             {
-                foreach (View v in Children)
+                View child = children[i];
+                if ((child.mViewFlags & VISIBILITY_MASK) != GONE)
                 {
-                    if (v.invalidated)
-                    {
-                        v.Measure(
-                            MeasureSpec.withSize(widthMeasureSpec, MeasuredWidth),
-                            MeasureSpec.withSize(heightMeasureSpec, MeasuredHeight)
-                        );
-                    }
+                    measureChild(child, widthMeasureSpec, heightMeasureSpec);
                 }
             }
         }
 
-        public void Layout(float l, float t, float r, float b)
+        /**
+         * Ask one of the children of this view to measure itself, taking into
+         * account both the MeasureSpec requirements for this view and its padding.
+         * The heavy lifting is done in getChildMeasureSpec.
+         *
+         * @param child The child to measure
+         * @param parentWidthMeasureSpec The width requirements for this view
+         * @param parentHeightMeasureSpec The height requirements for this view
+         */
+        protected void measureChild(View child, int parentWidthMeasureSpec,
+                int parentHeightMeasureSpec)
         {
-            Layout(FloatToPixel(l), FloatToPixel(t), FloatToPixel(r), FloatToPixel(b));
+            LayoutParams lp = child.mLayoutParams;
+
+            int childWidthMeasureSpec = getChildMeasureSpec(parentWidthMeasureSpec,
+                    mPaddingLeft + mPaddingRight, lp.width);
+            int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
+                    mPaddingTop + mPaddingBottom, lp.height);
+
+            child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
+        }
+
+        /**
+         * Does the hard part of measureChildren: figuring out the MeasureSpec to
+         * pass to a particular child. This method figures out the right MeasureSpec
+         * for one dimension (height or width) of one child view.
+         *
+         * The goal is to combine information from our MeasureSpec with the
+         * LayoutParams of the child to get the best possible results. For example,
+         * if the this view knows its size (because its MeasureSpec has a mode of
+         * EXACTLY), and the child has indicated in its LayoutParams that it wants
+         * to be the same size as the parent, the parent should ask the child to
+         * layout given an exact size.
+         *
+         * @param spec The requirements for this view
+         * @param padding The padding of this view for the current dimension and
+         *        margins, if applicable
+         * @param childDimension How big the child wants to be in the current
+         *        dimension
+         * @return a MeasureSpec integer for the child
+         */
+        public static int getChildMeasureSpec(int spec, int padding, int childDimension)
+        {
+            int specMode = MeasureSpec.getMode(spec);
+            int specSize = MeasureSpec.getSize(spec);
+
+            int size = Math.Max(0, specSize - padding);
+
+            int resultSize = 0;
+            int resultMode = 0;
+
+            switch (specMode)
+            {
+                // Parent has imposed an exact size on us
+                case MeasureSpec.EXACTLY:
+                    if (childDimension >= 0)
+                    {
+                        resultSize = childDimension;
+                        resultMode = MeasureSpec.EXACTLY;
+                    }
+                    else if (childDimension == LayoutParams.MATCH_PARENT)
+                    {
+                        // Child wants to be our size. So be it.
+                        resultSize = size;
+                        resultMode = MeasureSpec.EXACTLY;
+                    }
+                    else if (childDimension == LayoutParams.WRAP_CONTENT)
+                    {
+                        // Child wants to determine its own size. It can't be
+                        // bigger than us.
+                        resultSize = size;
+                        resultMode = MeasureSpec.AT_MOST;
+                    }
+                    break;
+
+                // Parent has imposed a maximum size on us
+                case MeasureSpec.AT_MOST:
+                    if (childDimension >= 0)
+                    {
+                        // Child wants a specific size... so be it
+                        resultSize = childDimension;
+                        resultMode = MeasureSpec.EXACTLY;
+                    }
+                    else if (childDimension == LayoutParams.MATCH_PARENT)
+                    {
+                        // Child wants to be our size, but our size is not fixed.
+                        // Constrain child to not be bigger than us.
+                        resultSize = size;
+                        resultMode = MeasureSpec.AT_MOST;
+                    }
+                    else if (childDimension == LayoutParams.WRAP_CONTENT)
+                    {
+                        // Child wants to determine its own size. It can't be
+                        // bigger than us.
+                        resultSize = size;
+                        resultMode = MeasureSpec.AT_MOST;
+                    }
+                    break;
+
+                // Parent asked to see how big we want to be
+                case MeasureSpec.UNSPECIFIED:
+                    if (childDimension >= 0)
+                    {
+                        // Child wants a specific size... let them have it
+                        resultSize = childDimension;
+                        resultMode = MeasureSpec.EXACTLY;
+                    }
+                    else if (childDimension == LayoutParams.MATCH_PARENT)
+                    {
+                        // Child wants to be our size... find out how big it should
+                        // be
+                        resultSize = View.sUseZeroUnspecifiedMeasureSpec ? 0 : size;
+                        resultMode = MeasureSpec.UNSPECIFIED;
+                    }
+                    else if (childDimension == LayoutParams.WRAP_CONTENT)
+                    {
+                        // Child wants to determine its own size.... find out how
+                        // big it should be
+                        resultSize = View.sUseZeroUnspecifiedMeasureSpec ? 0 : size;
+                        resultMode = MeasureSpec.UNSPECIFIED;
+                    }
+                    break;
+            }
+            //noinspection ResourceType
+            return MeasureSpec.makeMeasureSpec(resultSize, resultMode);
+        }
+
+        public virtual void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+        {
+            int viewWidth = getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec);
+            int viewHeight = getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec);
+
+            int count = getChildCount();
+            if (count > 0)
+            {
+                int maxHeight = 0;
+                int maxWidth = 0;
+
+                // Find out how big everyone wants to be
+                measureChildren(widthMeasureSpec, heightMeasureSpec);
+
+                // Find rightmost and bottom-most child
+                for (int i = 0; i < count; i++)
+                {
+                    View child = getChildAt(i);
+                    if (child.getVisibility() != GONE)
+                    {
+                        maxWidth = Math.Max(maxWidth, child.getMeasuredWidth());
+                        maxHeight = Math.Max(maxHeight, child.getMeasuredHeight());
+                    }
+                }
+
+                // Account for padding too
+                maxWidth += mPaddingLeft + mPaddingRight;
+                maxHeight += mPaddingTop + mPaddingBottom;
+
+                // Check against minimum height and width
+                viewWidth = Math.Clamp(maxWidth, 0, viewWidth);
+                viewHeight = Math.Clamp(maxHeight, 0, viewHeight);
+            }
+
+            setMeasuredDimension(viewWidth, viewHeight);
+        }
+
+        public void layout(float l, float t, float r, float b)
+        {
+            layout(FloatToPixel(l), FloatToPixel(t), FloatToPixel(r), FloatToPixel(b));
         }
 
         int mLeft;
@@ -1478,6 +1650,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         void unFocus(View focused)
         {
+            if (DBG)
+            {
+                System.Console.WriteLine(this + " unFocus()");
+            }
+
             if (mFocused == null)
             {
                 clearFocusInternal(focused, false, false);
@@ -2190,6 +2367,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         public void clearFocus()
         {
+            if (DBG)
+            {
+                System.Console.WriteLine(this + " clearFocus()");
+            }
+
             bool refocus = !isInTouchMode();
             clearFocusInternal(null, true, refocus);
         }
@@ -2963,6 +3145,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         void handleFocusGainInternal(int direction, Rect previouslyFocusedRect)
         {
+            if (DBG)
+            {
+                System.Console.WriteLine(this + " requestFocus()");
+            }
+
             if ((mPrivateFlags & PFLAG_FOCUSED) == 0)
             {
                 mPrivateFlags |= PFLAG_FOCUSED;
@@ -3520,7 +3707,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
-        public void Layout(int l, int t, int r, int b)
+        public void layout(int l, int t, int r, int b)
         {
             if ((mPrivateFlags & PFLAG_MEASURE_NEEDED_BEFORE_LAYOUT) != 0)
             {
@@ -3909,16 +4096,97 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         public static int FloatToPixel(float pixelF) => (int)Math.Ceiling(pixelF);
 
+        /**
+         * Get the LayoutParams associated with this view. All views should have
+         * layout parameters. These supply parameters to the <i>parent</i> of this
+         * view specifying how it should be arranged. There are many subclasses of
+         * View.LayoutParams, and these correspond to the different subclasses
+         * of View that are responsible for arranging their children.
+         *
+         * This method may return null if this View is not attached to a parent
+         * View or {@link #setLayoutParams(android.view.View.LayoutParams)}
+         * was not invoked successfully. When a View is attached to a parent
+         * View, this method must not return null.
+         *
+         * @return The LayoutParams associated with this view, or null if no
+         *         parameters have been set yet
+         */
+        public View.LayoutParams getLayoutParams()
+        {
+            return mLayoutParams;
+        }
+
+        /**
+         * Set the layout parameters associated with this view. These supply
+         * parameters to the <i>parent</i> of this view specifying how it should be
+         * arranged. There are many subclasses of View.LayoutParams, and these
+         * correspond to the different subclasses of View that are responsible
+         * for arranging their children.
+         *
+         * @param params The layout parameters for this view, cannot be null
+         */
+        public void setLayoutParams(View.LayoutParams layout_params)
+        {
+            if (layout_params == null) {
+                throw new Exception("Layout parameters cannot be null");
+            }
+            mLayoutParams = layout_params;
+            resolveLayoutParams();
+            if (mParent is View) {
+                ((View)mParent).onSetLayoutParams(this, layout_params);
+            }
+            //requestLayout();
+        }
+
+        /** @hide */
+        protected void onSetLayoutParams(View child, LayoutParams layoutParams)
+        {
+            //requestLayout();
+        }
+
+        /**
+         * Resolve the layout parameters depending on the resolved layout direction
+         *
+         * @hide
+         */
+        public void resolveLayoutParams()
+        {
+            if (mLayoutParams != null)
+            {
+                //mLayoutParams.resolveLayoutDirection(getLayoutDirection());
+            }
+        }
+
+        /**
+         * Called from layout when this view should
+         * assign a size and position to each of its children.
+         *
+         * Derived classes with children should override
+         * this method and call layout on each of
+         * their children.
+         * @param changed This is a new size or position for this view
+         * @param left Left position, relative to parent
+         * @param top Top position, relative to parent
+         * @param right Right position, relative to parent
+         * @param bottom Bottom position, relative to parent
+         */
         protected virtual void OnLayout(bool changed, int l, int t, int r, int b)
         {
-            if (Children.Count > 0)
+            int count = getChildCount();
+
+            for (int i = 0; i < count; i++)
             {
-                foreach (View v in Children)
+                View child = getChildAt(i);
+                if (child.getVisibility() != GONE)
                 {
-                    if (v.invalidated)
-                    {
-                        v.Layout(l, t, r, b);
-                    }
+
+                    LayoutParams lp = child.getLayoutParams();
+
+                    int childLeft = mPaddingLeft;
+                    int childTop = mPaddingTop;
+                    child.layout(childLeft, childTop,
+                            childLeft + child.getMeasuredWidth(),
+                            childTop + child.getMeasuredHeight());
                 }
             }
         }
@@ -4656,6 +4924,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 SKPictureRecorder pictureRecorder = new SKPictureRecorder();
 
                 SKCanvas canvas = pictureRecorder.BeginRecording(new SKRect(0, 0, width, height));
+                canvas.setIsHardwareAccelerated(true);
 
                 try
                 {
@@ -4719,11 +4988,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
             if (renderNode != null)
             {
                 //renderNode.setHasOverlappingRendering(getHasOverlappingRendering());
-                //renderNode.setClipToBounds(mParent instanceof View
+                //renderNode.setClipToBounds(mParent is View
                 //        && ((View)mParent).getClipChildren());
 
                 //float alpha = 1;
-                //if (mParent instanceof View && (((View)mParent).mGroupFlags &
+                //if (mParent is View && (((View)mParent).mGroupFlags &
                 //        FLAG_SUPPORT_STATIC_TRANSFORMATIONS) != 0) {
                 //    View parentVG = (View)mParent;
                 //    Transformation t = parentVG.getChildTransformation();
@@ -5478,7 +5747,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
              * Used internally by MarginLayoutParams.
              * @hide
              */
-            public LayoutParams()
+            internal LayoutParams()
             {
             }
 
@@ -6396,7 +6665,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             {
                 throw new Exception("Given view not a child of " + this);
             }
-            view.layoutParams = layout_params;
+            view.mLayoutParams = layout_params;
         }
 
         protected bool checkLayoutParams(View.LayoutParams p)
@@ -6440,7 +6709,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             {
                 throw new Exception("Cannot add a null child view to a View");
             }
-            LayoutParams layout_params = child.layoutParams;
+            LayoutParams layout_params = child.mLayoutParams;
             if (layout_params == null) {
                 layout_params = generateDefaultLayoutParams();
                 if (layout_params == null) {
@@ -6667,6 +6936,56 @@ namespace Xamarin_DAW.Skia_UI_Kit
             mChildrenCount = 0;
 
             mPersistentDrawingCache = PERSISTENT_SCROLLING_CACHE;
+        }
+
+        /**
+         * If this view doesn't do any drawing on its own, set this flag to
+         * allow further optimizations. By default, this flag is not set on
+         * View, but could be set on some View subclasses such as ViewGroup.
+         *
+         * Typically, if you override {@link #onDraw(android.graphics.Canvas)}
+         * you should clear this flag.
+         *
+         * @param willNotDraw whether or not this View draw on its own
+         */
+        public void setWillNotDraw(bool willNotDraw)
+        {
+            setFlags(willNotDraw ? WILL_NOT_DRAW : 0, DRAW_MASK);
+        }
+
+        /**
+         * If this view doesn't do any drawing on its own, set this flag to
+         * false to allow further optimizations. By default, this flag is
+         * set on View.
+         *
+         * Typically, if you override {@link #onDraw(android.graphics.Canvas)}
+         * you should clear this flag.
+         *
+         * @param willDraw whether or not this View draw on its own
+         */
+        public void setWillDraw(bool willDraw)
+        {
+            setFlags(willDraw ? 0 : WILL_NOT_DRAW, DRAW_MASK);
+        }
+
+        /**
+         * Returns whether or not this View draws on its own.
+         *
+         * @return true if this view has nothing to draw, false otherwise
+         */
+        public bool willNotDraw()
+        {
+            return (mViewFlags & DRAW_MASK) == WILL_NOT_DRAW;
+        }
+
+        /**
+         * Returns whether or not this View draws on its own.
+         *
+         * @return false if this view has nothing to draw, true otherwise
+         */
+        public bool willDraw()
+        {
+            return (mViewFlags & DRAW_MASK) != WILL_NOT_DRAW;
         }
 
         // For debugging only.  You can see these in hierarchyviewer.
@@ -7241,11 +7560,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             if (preventRequestLayout)
             {
-                child.layoutParams = layout_params;
+                child.mLayoutParams = layout_params;
             }
             else
             {
-                child.layoutParams = layout_params;
+                child.mLayoutParams = layout_params;
             }
 
             if (index < 0)
@@ -7442,7 +7761,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         protected void onDebugDrawMargins(SKCanvas canvas, SKPaint paint) {
             for (int i = 0; i < getChildCount(); i++) {
                 View c = getChildAt(i);
-                c.layoutParams.onDebugDraw(c, canvas, paint);
+                c.mLayoutParams.onDebugDraw(c, canvas, paint);
             }
         }
 
@@ -7924,7 +8243,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         }
 
         /**
-         * When set, this ViewGroup supports static transformations on children; this causes
+         * When set, this View supports static transformations on children; this causes
          * {@link #getChildStaticTransformation(View, android.view.animation.Transformation)} to be
          * invoked when a child is drawn.
          *
@@ -7937,7 +8256,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         internal const int FLAG_SUPPORT_STATIC_TRANSFORMATIONS = 0x800;
 
         /**
-         * When this property is set to true, this ViewGroup supports static transformations on
+         * When this property is set to true, this View supports static transformations on
          * children; this causes
          * {@link #getChildStaticTransformation(View, android.view.animation.Transformation)} to be
          * invoked when a child is drawn.
@@ -8508,6 +8827,296 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //    };
             //    post(end);
             //}
+        }
+
+
+
+        int getId() => NO_ID;
+
+        /**
+         * The view's tag.
+         * {@hide}
+         *
+         * @see #setTag(Object)
+         * @see #getTag()
+         */
+        protected object mTag = null;
+
+        /**
+         * Returns this view's tag.
+         *
+         * @return the Object stored in this view as a tag, or {@code null} if not
+         *         set
+         *
+         * @see #setTag(Object)
+         * @see #getTag(int)
+         */
+        public object getTag()
+        {
+            return mTag;
+        }
+
+        /**
+         * Sets the tag associated with this view. A tag can be used to mark
+         * a view in its hierarchy and does not have to be unique within the
+         * hierarchy. Tags can also be used to store data within a view without
+         * resorting to another data structure.
+         *
+         * @param tag an Object to tag the view with
+         *
+         * @see #getTag()
+         * @see #setTag(int, Object)
+         */
+        public void setTag(object tag)
+        {
+            mTag = tag;
+        }
+
+        private const bool DBG = true;
+
+        /**
+         * The logging tag used by this class with android.util.Log.
+         */
+        protected const string VIEW_LOG_TAG = "View";
+
+        /**
+         * Build a human readable string representation of the specified view flags.
+         *
+         * @param flags the view flags to convert to a string
+         * @return a String representing the supplied flags
+         */
+        private static string printFlags(int flags)
+        {
+            string output = "";
+            int numFlags = 0;
+            if ((flags & FOCUSABLE) == FOCUSABLE)
+            {
+                output += "TAKES_FOCUS";
+                numFlags++;
+            }
+
+            switch (flags & VISIBILITY_MASK)
+            {
+                case INVISIBLE:
+                    if (numFlags > 0)
+                    {
+                        output += " ";
+                    }
+                    output += "INVISIBLE";
+                    // USELESS HERE numFlags++;
+                    break;
+                case GONE:
+                    if (numFlags > 0)
+                    {
+                        output += " ";
+                    }
+                    output += "GONE";
+                    // USELESS HERE numFlags++;
+                    break;
+                default:
+                    break;
+            }
+            return output;
+        }
+
+        /**
+         * Build a human readable string representation of the specified private
+         * view flags.
+         *
+         * @param privateFlags the private view flags to convert to a string
+         * @return a String representing the supplied flags
+         */
+        private static string printPrivateFlags(int privateFlags)
+        {
+            string output = "";
+            int numFlags = 0;
+
+            if ((privateFlags & PFLAG_WANTS_FOCUS) == PFLAG_WANTS_FOCUS)
+            {
+                output += "WANTS_FOCUS";
+                numFlags++;
+            }
+
+            if ((privateFlags & PFLAG_FOCUSED) == PFLAG_FOCUSED)
+            {
+                if (numFlags > 0)
+                {
+                    output += " ";
+                }
+                output += "FOCUSED";
+                numFlags++;
+            }
+
+            //if ((privateFlags & PFLAG_SELECTED) == PFLAG_SELECTED)
+            //{
+            //    if (numFlags > 0)
+            //    {
+            //        output += " ";
+            //    }
+            //    output += "SELECTED";
+            //    numFlags++;
+            //}
+
+            if ((privateFlags & PFLAG_IS_ROOT_NAMESPACE) == PFLAG_IS_ROOT_NAMESPACE)
+            {
+                if (numFlags > 0)
+                {
+                    output += " ";
+                }
+                output += "IS_ROOT_NAMESPACE";
+                numFlags++;
+            }
+
+            if ((privateFlags & PFLAG_HAS_BOUNDS) == PFLAG_HAS_BOUNDS)
+            {
+                if (numFlags > 0)
+                {
+                    output += " ";
+                }
+                output += "HAS_BOUNDS";
+                numFlags++;
+            }
+
+            if ((privateFlags & PFLAG_DRAWN) == PFLAG_DRAWN)
+            {
+                if (numFlags > 0)
+                {
+                    output += " ";
+                }
+                output += "DRAWN";
+                // USELESS HERE numFlags++;
+            }
+            return output;
+        }
+
+        /**
+         * Prints information about this view in the log output, with the tag
+         * {@link #VIEW_LOG_TAG}.
+         *
+         * @hide
+         */
+        public void debug()
+        {
+            debug(0);
+        }
+
+        /**
+         * Prints information about this view in the log output, with the tag
+         * {@link #VIEW_LOG_TAG}. Each line in the output is preceded with an
+         * indentation defined by the <code>depth</code>.
+         *
+         * @param depth the indentation level
+         *
+         * @hide
+         */
+        protected void debug(int depth)
+        {
+            string output = debugIndent(depth - 1);
+
+            output += "+ " + this;
+            int id = getId();
+            if (id != -1)
+            {
+                output += " (id=" + id + ")";
+            }
+            object tag = getTag();
+            if (tag != null)
+            {
+                output += " (tag=" + tag + ")";
+            }
+            Log.d(VIEW_LOG_TAG, output);
+
+            if ((mPrivateFlags & PFLAG_FOCUSED) != 0)
+            {
+                output = debugIndent(depth) + " FOCUSED";
+                Log.d(VIEW_LOG_TAG, output);
+            }
+
+            output = debugIndent(depth);
+            output += "frame={" + mLeft + ", " + mTop + ", " + mRight
+                    + ", " + mBottom + "} scroll={" + mScrollX + ", " + mScrollY
+                    + "} ";
+            Log.d(VIEW_LOG_TAG, output);
+
+            if (mPaddingLeft != 0 || mPaddingTop != 0 || mPaddingRight != 0
+                    || mPaddingBottom != 0)
+            {
+                output = debugIndent(depth);
+                output += "padding={" + mPaddingLeft + ", " + mPaddingTop
+                        + ", " + mPaddingRight + ", " + mPaddingBottom + "}";
+                Log.d(VIEW_LOG_TAG, output);
+            }
+
+            output = debugIndent(depth);
+            output += "mMeasureWidth=" + mMeasuredWidth +
+                    " mMeasureHeight=" + mMeasuredHeight;
+            Log.d(VIEW_LOG_TAG, output);
+
+            output = debugIndent(depth);
+            if (mLayoutParams == null)
+            {
+                output += "BAD! no layout params";
+            }
+            else
+            {
+                output = mLayoutParams.debug(output);
+            }
+            Log.d(VIEW_LOG_TAG, output);
+
+            output = debugIndent(depth);
+            output += "flags={";
+            output += View.printFlags(mViewFlags);
+            output += "}";
+            Log.d(VIEW_LOG_TAG, output);
+
+            output = debugIndent(depth);
+            output += "privateFlags={";
+            output += View.printPrivateFlags(mPrivateFlags);
+            output += "}";
+            Log.d(VIEW_LOG_TAG, output);
+
+            output = debugIndent(depth);
+            output += "willDraw=" + willDraw();
+            Log.d(VIEW_LOG_TAG, output);
+
+            output = debugIndent(depth);
+            output += "children={";
+
+            int childCount = getChildCount();
+
+            if (childCount > 0) {
+
+                Log.d(VIEW_LOG_TAG, output);
+
+                for (int i = 0; i < childCount; i++)
+                {
+                    View c = getChildAt(i);
+                    c.debug(depth + 2);
+                }
+
+                output = debugIndent(depth);
+            }
+
+            output += "}";
+            Log.d(VIEW_LOG_TAG, output);
+        }
+
+        /**
+         * Creates a string of whitespaces used for indentation.
+         *
+         * @param depth the indentation level
+         * @return a String containing (depth * 2 + 3) * 2 white spaces
+         *
+         * @hide
+         */
+        protected static string debugIndent(int depth)
+        {
+            System.Text.StringBuilder spaces = new System.Text.StringBuilder((depth * 2 + 3) * 2);
+            for (int i = 0; i < (depth * 2) + 3; i++)
+            {
+                spaces.Append(' ').Append(' ');
+            }
+            return spaces.ToString();
         }
     }
 }

@@ -265,7 +265,7 @@ namespace Xamarin_DAW.UI.Utils
             addTouch(identity, x, y, deltaX, deltaY, size, 0);
         }
         public void addTouch(object identity, float x, float y, float deltaX, float deltaY, float size, float pressure) {
-            addTouch(new TouchData(identity, nanoTime(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_DOWN, false));
+            addTouch(new TouchData(identity, currentTimeNanos(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_DOWN, false));
         }
 
         public void moveTouch(TouchData touchData) {
@@ -327,7 +327,7 @@ namespace Xamarin_DAW.UI.Utils
         }
         public void moveTouch(object identity, float x, float y, float deltaX, float deltaY, float size, float pressure)
         {
-            moveTouch(new TouchData(identity, nanoTime(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_MOVE));
+            moveTouch(new TouchData(identity, currentTimeNanos(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_MOVE));
         }
 
         public void removeTouch(TouchData touchData) {
@@ -390,11 +390,11 @@ namespace Xamarin_DAW.UI.Utils
         }
         public void removeTouch(object identity, float x, float y, float deltaX, float deltaY, float size, float pressure)
         {
-            removeTouch(new TouchData(identity, nanoTime(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_UP));
+            removeTouch(new TouchData(identity, currentTimeNanos(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_UP));
         }
 
         public void cancelTouch() {
-            long timestamp = nanoTime();
+            long timestamp = currentTimeNanos();
             // cancel the first touch
             if (maxSupportedTouches <= 0)
             {
@@ -490,7 +490,7 @@ namespace Xamarin_DAW.UI.Utils
         }
         public void cancelTouch(object identity, float x, float y, float deltaX, float deltaY, float size, float pressure)
         {
-            cancelTouch(new TouchData(identity, nanoTime(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_CANCELLED));
+            cancelTouch(new TouchData(identity, currentTimeNanos(), x, y, deltaX, deltaY, size, pressure, TouchState.TOUCH_CANCELLED));
         }
 
         public static string stateToString(TouchState state) {

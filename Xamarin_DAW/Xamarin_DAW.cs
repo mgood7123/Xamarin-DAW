@@ -332,7 +332,7 @@ namespace Xamarin_DAW
             {
                 Skia_UI_Kit.Box boxView = new Skia_UI_Kit.Box()
                 {
-                    layoutParams = new() {
+                    mLayoutParams = new() {
                         width = 40,
                         height = 40
                     }

@@ -7,15 +7,15 @@ namespace Xamarin_DAW.Skia_UI_Kit
     {
         public Box()
         {
+            setWillDraw(true);
         }
 
-        public SKRect r = new(0, 0, 100, 100);
-        public SKColorF color = SKColors.Red;
+        SKPaint paint = new SKPaint() { ColorF = SKColors.Red };
 
         protected override void OnDraw(SKCanvas canvas)
         {
             Console.WriteLine("Box OnPaintSurface");
-            canvas.DrawRect(r, new SKPaint() { ColorF = color });
+            canvas.DrawRect(new SKRect(0, 0, getWidth(), getHeight()), paint);
         }
     }
 }

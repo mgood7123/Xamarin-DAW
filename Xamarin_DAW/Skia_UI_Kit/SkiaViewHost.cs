@@ -1,10 +1,7 @@
 ﻿using System;
 using SkiaSharp;
-using SkiaSharp.Extended;
 using SkiaSharp.Views.Forms;
 using Xamarin.Forms;
-using Xamarin.Forms.Xaml;
-using Xamarin.Forms.Xaml.Internals;
 
 namespace Xamarin_DAW.Skia_UI_Kit
 {
@@ -66,8 +63,19 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             if (Application is not null)
             {
-                if (canvas is null)
+                bool canvas_exists = canvas is not null;
+                bool canvas_needs_creation = !canvas_exists
+                    || canvas.getWidth() != e.BackendRenderTarget.Width
+                    || canvas.getHeight() != e.BackendRenderTarget.Height;
+
+                if (canvas_needs_creation)
                 {
+                    if (canvas_exists)
+                    {
+                        canvas.Dispose();
+                        canvas.DisposeSurface();
+                        canvas = null;
+                    }
                     canvas = SKCanvasExtensions.CreateHardwareAcceleratedCanvas(null, GRContext, e.BackendRenderTarget.Width, e.BackendRenderTarget.Height);
                 }
 

@@ -23,6 +23,17 @@ namespace Xamarin_DAW.Skia_UI_Kit
 {
     public class Application : Xamarin.Forms.BindableObject, Parent
     {
+        private const bool DBG = true;
+        private const bool DEBUG_LAYOUT = true;
+        private const bool DEBUG_ORIENTATION = true;
+        private const bool DEBUG_INPUT_RESIZE = true;
+        private const bool DEBUG_DRAW = true;
+        private const bool DEBUG_FPS = true;
+        private const bool DEBUG_BLAST = true;
+
+        private const string TAG = "ViewRootImpl";
+        private const string mTag = TAG;
+
         private SkiaViewHost host;
 
         internal SkiaViewHost GetHost()
@@ -47,7 +58,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             if (mContentParent == null)
             {
                 mContentParent = new View();
-                mContentParent.layoutParams = new View.LayoutParams(View.LayoutParams.MATCH_PARENT, View.LayoutParams.MATCH_PARENT);
+                mView.addView(mContentParent, new View.LayoutParams(View.LayoutParams.MATCH_PARENT, View.LayoutParams.MATCH_PARENT));
             } else
             {
                 mContentParent.removeAllViews();
@@ -70,7 +81,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         }
 
-        internal void Invalidate() => host?.InvalidateSurface();
+        internal void invalidate() => host?.InvalidateSurface();
 
         public void INTERNAL_ERROR(string error) => host?.INTERNAL_ERROR(error);
 
@@ -93,7 +104,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         }
 
         View.AttachInfo mAttachInfo;
-        bool mFirst = true;
+        bool mFirst = true; // true for the first time the view is added
         private bool mWillDrawSoon;
         private bool mNewSurfaceNeeded;
         private bool mActivityRelaunched;
@@ -104,15 +115,57 @@ namespace Xamarin_DAW.Skia_UI_Kit
         bool mForceNextWindowRelayout;
         bool mIsDrawing;
 
-        int mWidth;
-        int mHeight;
+        int mWidth = -1;
+        int mHeight = -1;
 
         private int canvasWidth;
         private int canvasHeight;
 
-        View mView = new();
+        View mView = new()
+        {
+            mLayoutParams = new (
+                View.LayoutParams.MATCH_PARENT,
+                View.LayoutParams.MATCH_PARENT
+            )
+        };
+
         int mViewVisibility;
         bool mAppVisibilityChanged;
+
+        // Variables to track frames per second, enabled via DEBUG_FPS flag
+        private long mFpsStartTime = -1;
+        private long mFpsPrevTime = -1;
+        private int mFpsNumFrames;
+
+        /**
+         * Called from draw() when DEBUG_FPS is enabled
+         */
+        private void trackFPS()
+        {
+            // Tracks frames per second drawn. First value in a series of draws may be bogus
+            // because it down not account for the intervening idle time
+            long nowTime = NanoTime.currentTimeMillis();
+            if (mFpsStartTime < 0)
+            {
+                mFpsStartTime = mFpsPrevTime = nowTime;
+                mFpsNumFrames = 0;
+            }
+            else
+            {
+                ++mFpsNumFrames;
+                long frameTime = nowTime - mFpsPrevTime;
+                long totalTime = nowTime - mFpsStartTime;
+                Log.v(mTag, "Frame time:\t" + frameTime);
+                mFpsPrevTime = nowTime;
+                if (totalTime > 1000)
+                {
+                    float fps = (float)mFpsNumFrames * 1000 / totalTime;
+                    Log.v(mTag, "FPS:\t" + fps);
+                    mFpsStartTime = nowTime;
+                    mFpsNumFrames = 0;
+                }
+            }
+        }
 
         int getHostVisibility()
         {
@@ -127,6 +180,9 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         private bool ensureTouchModeLocally(bool inTouchMode)
         {
+            if (DBG) Log.v("touchmode", "ensureTouchModeLocally(" + inTouchMode + "), current "
+                    + "touch mode is " + mAttachInfo.mInTouchMode);
+
             if (mAttachInfo.mInTouchMode == inTouchMode) return false;
 
             mAttachInfo.mInTouchMode = inTouchMode;
@@ -262,15 +318,16 @@ namespace Xamarin_DAW.Skia_UI_Kit
             {
                 return;
             }
-            try
-            {
-                mView.Measure(childWidthMeasureSpec, childHeightMeasureSpec);
+            try {
+                mView.measure(childWidthMeasureSpec, childHeightMeasureSpec);
             }
-            finally
+            catch (Exception e)
             {
+                Log.v(mTag, "Caught exception while measuring view: " + e);
             }
         }
 
+        Rect frame;
 
         private bool measureHierarchy(View host,
             object lp_unused, // WindowManager.LayoutParams lp,
@@ -280,6 +337,9 @@ namespace Xamarin_DAW.Skia_UI_Kit
             int childWidthMeasureSpec;
             int childHeightMeasureSpec;
             bool windowSizeMayChange = false;
+
+            if (DEBUG_ORIENTATION || DEBUG_LAYOUT) Log.v(mTag, "Measuring " + host + " in display " + desiredWindowWidth
+                    + "x" + desiredWindowHeight + "...");
 
             bool goodMeasure = false;
             
@@ -292,11 +352,12 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 }
             }
 
-            //if (DBG) {
-            //    System.out.println("======================================");
-            //    System.out.println("performTraversals -- after measure");
-            //    host.debug();
-            //}
+            if (DBG)
+            {
+                System.Console.WriteLine("======================================");
+                System.Console.WriteLine("performTraversals -- after measure");
+                host.debug();
+            }
 
             return windowSizeMayChange;
         }
@@ -316,6 +377,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
         private void performTraversals()
         {
             View host = mView;
+
+            if (DBG)
+            {
+                System.Console.WriteLine("======================================");
+                System.Console.WriteLine("performTraversals");
+                host.debug();
+            }
 
             int w = View.MeasureSpec.makeMeasureSpec(canvasWidth, View.MeasureSpec.EXACTLY);
             int h = View.MeasureSpec.makeMeasureSpec(canvasHeight, View.MeasureSpec.EXACTLY);
@@ -350,6 +418,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
                 if (desiredWindowWidth != mWidth || desiredWindowHeight != mHeight)
                 {
+                    if (DEBUG_ORIENTATION) Log.v(mTag, "View " + host + " resized to: " + frame);
                     mFullRedrawNeeded = true;
                     mLayoutRequested = true;
                     windowSizeMayChange = true;
@@ -538,11 +607,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
                 try
                 {
-                    //if (DEBUG_LAYOUT)
-                    //{
-                    //    Log.i(mTag, "host=w:" + host.getMeasuredWidth() + ", h:" +
-                    //            host.getMeasuredHeight() + ", params=" + params);
-                    //}
+                    if (DEBUG_LAYOUT)
+                    {
+                        Log.i(mTag, "host=w:" + host.getMeasuredWidth() + ", h:" +
+                                host.getMeasuredHeight()); // + ", params=" + params);
+                    }
 
                     //if (mAttachInfo.mThreadedRenderer != null)
                     //{
@@ -566,22 +635,25 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     bool dockedResizing = false; //(relayoutResult
                             //& WindowManagerGlobal.RELAYOUT_RES_DRAG_RESIZING_DOCKED) != 0;
                     bool dragResizing = freeformResizing || dockedResizing;
-                    //if ((relayoutResult & WindowManagerGlobal.RELAYOUT_RES_BLAST_SYNC) != 0)
-                    //{
-                    //    if (DEBUG_BLAST)
-                    //    {
-                    //        Log.d(mTag, "Relayout called with blastSync");
-                    //    }
-                    //    reportNextDraw();
-                    //    if (isHardwareEnabled())
-                    //    {
-                    //        mNextDrawUseBlastSync = true;
-                    //    }
-                    //}
+                    if (
+                        windowSizeMayChange
+                        //(relayoutResult & WindowManagerGlobal.RELAYOUT_RES_BLAST_SYNC) != 0
+                    )
+                    {
+                        if (DEBUG_BLAST)
+                        {
+                            Log.d(mTag, "Relayout called with blastSync");
+                        }
+                        reportNextDraw();
+                        if (isHardwareEnabled())
+                        {
+                            //mNextDrawUseBlastSync = true;
+                        }
+                    }
 
                     bool surfaceControlChanged = false;
-                            //(relayoutResult & RELAYOUT_RES_SURFACE_CHANGED)
-                                    //== RELAYOUT_RES_SURFACE_CHANGED;
+                    //(relayoutResult & RELAYOUT_RES_SURFACE_CHANGED)
+                    //== RELAYOUT_RES_SURFACE_CHANGED;
 
                     //if (mSurfaceControl.isValid())
                     //{
@@ -589,8 +661,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     //            surfaceControlChanged /*forceUpdate */);
                     //}
 
-                    //if (DEBUG_LAYOUT) Log.v(mTag, "relayout: frame=" + frame.toShortString()
-                            //+ " surface=" + mSurface);
+                    if (DEBUG_LAYOUT) Log.v(mTag, "relayout: frame=" + frame.toShortString());
 
                     // If the pending {@link MergedConfiguration} handed back from
                     // {@link #relayoutWindow} does not match the one last reported,
@@ -769,20 +840,20 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                 }
 
-                //if (DEBUG_ORIENTATION) Log.v(
-                //        TAG, "Relayout returned: frame=" + frame + ", surface=" + mSurface);
+                if (DEBUG_ORIENTATION) Log.v(
+                        TAG, "Relayout returned: frame=" + frame);
 
-                mAttachInfo.mWindowLeft = 0; // frame.left;
-                mAttachInfo.mWindowTop = 0; // frame.top;
+                mAttachInfo.mWindowLeft = frame.left;
+                mAttachInfo.mWindowTop = frame.top;
 
                 // !!FIXME!! This next section handles the case where we did not get the
                 // window size we asked for. We should avoid this by getting a maximum size from
                 // the window session beforehand.
-                //if (mWidth != frame.width() || mHeight != frame.height())
-                //{
-                //    mWidth = frame.width();
-                //    mHeight = frame.height();
-                //}
+                if (mWidth != frame.width() || mHeight != frame.height())
+                {
+                    mWidth = frame.width();
+                    mHeight = frame.height();
+                }
                 object mSurfaceHolder = new object();
                 if (mSurfaceHolder != null)
                 {
@@ -877,11 +948,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
                         int childWidthMeasureSpec = getRootMeasureSpec(mWidth, View.LayoutParams.MATCH_PARENT); // lp.width);
                         int childHeightMeasureSpec = getRootMeasureSpec(mHeight, View.LayoutParams.MATCH_PARENT); // lp.height);
 
-                        //if (DEBUG_LAYOUT) Log.v(mTag, "Ooops, something changed!  mWidth="
-                        //        + mWidth + " measuredWidth=" + host.getMeasuredWidth()
-                        //        + " mHeight=" + mHeight
-                        //        + " measuredHeight=" + host.getMeasuredHeight()
-                        //        + " dispatchApplyInsets=" + dispatchApplyInsets);
+                        if (DEBUG_LAYOUT) Log.v(mTag, "Ooops, something changed!  mWidth="
+                                + mWidth + " measuredWidth=" + host.getMeasuredWidth()
+                                + " mHeight=" + mHeight
+                                + " measuredHeight=" + host.getMeasuredHeight()
+                                + " dispatchApplyInsets=" + dispatchApplyInsets);
 
                         // Ask host how big it wants to be
                         performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);
@@ -910,9 +981,9 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
                         if (measureAgain)
                         {
-                            //if (DEBUG_LAYOUT) Log.v(mTag,
-                            //        "And hey let's measure once more: width=" + width
-                            //        + " height=" + height);
+                            if (DEBUG_LAYOUT) Log.v(mTag,
+                                    "And hey let's measure once more: width=" + width
+                                    + " height=" + height);
                             performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);
                         }
 
@@ -991,12 +1062,12 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 //    }
                 //}
 
-                //if (DBG)
-                //{
-                //    System.out.println("======================================");
-                //    System.out.println("performTraversals -- after setFrame");
-                //    host.debug();
-                //}
+                if (DBG)
+                {
+                    System.Console.WriteLine("======================================");
+                    System.Console.WriteLine("performTraversals -- after setFrame");
+                    host.debug();
+                }
             }
 
             // These callbacks will trigger SurfaceView SurfaceHolder.Callbacks and must be invoked
@@ -1071,26 +1142,26 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 )
                 {
                     // handle first focus request
-                    //if (DEBUG_INPUT_RESIZE)
-                    //{
-                    //    Log.v(mTag, "First: mView.hasFocus()=" + mView.hasFocus());
-                    //}
+                    if (DEBUG_INPUT_RESIZE)
+                    {
+                        Log.v(mTag, "First: mView.hasFocus()=" + mView.hasFocus());
+                    }
                     if (mView != null)
                     {
                         if (!mView.hasFocus())
                         {
                             mView.restoreDefaultFocus();
-                            //if (DEBUG_INPUT_RESIZE)
-                            //{
-                            //    Log.v(mTag, "First: requested focused view=" + mView.findFocus());
-                            //}
+                            if (DEBUG_INPUT_RESIZE)
+                            {
+                                Log.v(mTag, "First: requested focused view=" + mView.findFocus());
+                            }
                         }
                         else
                         {
-                            //if (DEBUG_INPUT_RESIZE)
-                            //{
-                            //    Log.v(mTag, "First: existing focused view=" + mView.findFocus());
-                            //}
+                            if (DEBUG_INPUT_RESIZE)
+                            {
+                                Log.v(mTag, "First: existing focused view=" + mView.findFocus());
+                            }
                         }
                     }
                 }
@@ -1143,10 +1214,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //mImeFocusController.onTraversal(hasWindowFocus, mWindowAttributes);
 
             // Remember if we must report the next draw.
-            //if ((relayoutResult & WindowManagerGlobal.RELAYOUT_RES_FIRST_TIME) != 0)
-            //{
-            //    reportNextDraw();
-            //}
+            if (
+                windowSizeMayChange
+                //(relayoutResult & WindowManagerGlobal.RELAYOUT_RES_FIRST_TIME) != 0
+            )
+            {
+                reportNextDraw();
+            }
 
             bool cancelDraw =
                 //mAttachInfo.mTreeObserver.dispatchOnPreDraw() ||
@@ -1208,7 +1282,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         int mDrawsNeededToReport = 0;
         private int mScrollY;
         private int mCurScrollY;
-        private Rect mDirty;
+        private Rect mDirty = new();
         private int mCanvasOffsetX;
         private int mCanvasOffsetY;
         private bool mIsAnimating;
@@ -1234,21 +1308,21 @@ namespace Xamarin_DAW.Skia_UI_Kit
             {
                 reportDrawFinished();
             }
-            //else if (DEBUG_BLAST)
-            //{
-            //    Log.d(mTag, "pendingDrawFinished. Waiting on draw reported mDrawsNeededToReport="
-            //            + mDrawsNeededToReport);
-            //}
+            else if (DEBUG_BLAST)
+            {
+                Log.d(mTag, "pendingDrawFinished. Waiting on draw reported mDrawsNeededToReport="
+                        + mDrawsNeededToReport);
+            }
         }
 
         private void reportDrawFinished()
         {
             try
             {
-                //if (DEBUG_BLAST)
-                //{
-                //    Log.d(mTag, "reportDrawFinished");
-                //}
+                if (DEBUG_BLAST)
+                {
+                    Log.d(mTag, "reportDrawFinished");
+                }
                 mDrawsNeededToReport = 0;
                 //mWindowSession.finishDrawing(mWindow, mSurfaceChangedTransaction);
             }
@@ -1263,186 +1337,236 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
+        /**
+         * Force the window to report its next draw.
+         * <p>
+         * This method is only supposed to be used to speed up the interaction from SystemUI and window
+         * manager when waiting for the first frame to be drawn when turning on the screen. DO NOT USE
+         * unless you fully understand this interaction.
+         * @hide
+         */
+        public void setReportNextDraw()
+        {
+            reportNextDraw();
+            invalidate();
+        }
+
+        private void reportNextDraw()
+        {
+            if (mReportNextDraw == false)
+            {
+                drawPending();
+            }
+            mReportNextDraw = true;
+        }
 
         private void performDraw()
         {
-            if (!mReportNextDraw || mView == null)
-            {
-                return;
-            }
-
-            bool fullRedrawNeeded =
-                    mFullRedrawNeeded || mReportNextDraw //|| mNextDrawUseBlastSync
-                    ;
-            mFullRedrawNeeded = false;
-
-            mIsDrawing = true;
-            //Trace.traceBegin(Trace.TRACE_TAG_VIEW, "draw");
-
-            //bool usingAsyncReport = addFrameCompleteCallbackIfNeeded();
-            //addFrameCallbackIfNeeded();
-
             try
             {
-                bool canUseAsync = draw(fullRedrawNeeded);
-                //if (usingAsyncReport && !canUseAsync)
-                //{
-                //    mAttachInfo.mThreadedRenderer.setFrameCompleteCallback(null);
-                //    usingAsyncReport = false;
-                //}
-            }
-            finally
-            {
-                mIsDrawing = false;
-                //Trace.traceEnd(Trace.TRACE_TAG_VIEW);
-            }
-
-            // For whatever reason we didn't create a HardwareRenderer, end any
-            // hardware animations that are now dangling
-            if (mAttachInfo.mPendingAnimatingRenderNodes != null)
-            {
-                int count = mAttachInfo.mPendingAnimatingRenderNodes.Count;
-                for (int i = 0; i < count; i++)
+                if (!mReportNextDraw || mView == null)
                 {
-                    //mAttachInfo.mPendingAnimatingRenderNodes.ElementAt(i).endAllAnimators();
+                    return;
                 }
-                mAttachInfo.mPendingAnimatingRenderNodes.Clear();
-            }
 
-            if (mReportNextDraw)
+                if (DEBUG_DRAW)
+                {
+                    Log.v(mTag, "STARTED DRAWING: " + mView);
+                }
+
+                bool fullRedrawNeeded =
+                        mFullRedrawNeeded || mReportNextDraw //|| mNextDrawUseBlastSync
+                        ;
+                mFullRedrawNeeded = false;
+
+                mIsDrawing = true;
+                //Trace.traceBegin(Trace.TRACE_TAG_VIEW, "draw");
+
+                //bool usingAsyncReport = addFrameCompleteCallbackIfNeeded();
+                //addFrameCallbackIfNeeded();
+
+                try
+                {
+                    bool canUseAsync = draw(fullRedrawNeeded);
+                    //if (usingAsyncReport && !canUseAsync)
+                    //{
+                    //    mAttachInfo.mThreadedRenderer.setFrameCompleteCallback(null);
+                    //    usingAsyncReport = false;
+                    //}
+                }
+                catch (Exception e)
+                {
+                    Log.v(mTag, "Caught exception while drawing view: " + e);
+                }
+                finally
+                {
+                    mIsDrawing = false;
+                    //Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+                }
+
+                // For whatever reason we didn't create a HardwareRenderer, end any
+                // hardware animations that are now dangling
+                if (mAttachInfo.mPendingAnimatingRenderNodes != null)
+                {
+                    int count = mAttachInfo.mPendingAnimatingRenderNodes.Count;
+                    for (int i = 0; i < count; i++)
+                    {
+                        //mAttachInfo.mPendingAnimatingRenderNodes.ElementAt(i).endAllAnimators();
+                    }
+                    mAttachInfo.mPendingAnimatingRenderNodes.Clear();
+                }
+
+                if (mReportNextDraw)
+                {
+                    mReportNextDraw = false;
+
+                    // if we're using multi-thread renderer, wait for the window frame draws
+                    //if (mWindowDrawCountDown != null)
+                    //{
+                    //    try
+                    //    {
+                    //        mWindowDrawCountDown.await();
+                    //    }
+                    //    catch (InterruptedException e)
+                    //    {
+                    //        Log.e(mTag, "Window redraw count down interrupted!");
+                    //    }
+                    //    mWindowDrawCountDown = null;
+                    //}
+
+                    //if (mAttachInfo.mThreadedRenderer != null)
+                    //{
+                    //    mAttachInfo.mThreadedRenderer.setStopped(mStopped);
+                    //}
+
+                    if (DEBUG_DRAW)
+                    {
+                        Log.v(mTag, "FINISHED DRAWING: " + mView);
+                    }
+
+                    //if (mSurfaceHolder != null && mSurface.isValid())
+                    //{
+                    //    SurfaceCallbackHelper sch = new SurfaceCallbackHelper(this::postDrawFinished);
+                    //    SurfaceHolder.Callback callbacks[] = mSurfaceHolder.getCallbacks();
+
+                    //    sch.dispatchSurfaceRedrawNeededAsync(mSurfaceHolder, callbacks);
+                    //}
+                    //else if (!usingAsyncReport)
+                    //{
+                    //    if (mAttachInfo.mThreadedRenderer != null)
+                    //    {
+                    //        mAttachInfo.mThreadedRenderer.fence();
+                    //    }
+                    //    pendingDrawFinished();
+                    //}
+                }
+                //if (mPerformContentCapture)
+                //{
+                //    performContentCaptureInitialReport();
+                //}
+            }
+            catch (Exception e)
             {
-                mReportNextDraw = false;
-
-                // if we're using multi-thread renderer, wait for the window frame draws
-                //if (mWindowDrawCountDown != null)
-                //{
-                //    try
-                //    {
-                //        mWindowDrawCountDown.await();
-                //    }
-                //    catch (InterruptedException e)
-                //    {
-                //        Log.e(mTag, "Window redraw count down interrupted!");
-                //    }
-                //    mWindowDrawCountDown = null;
-                //}
-
-                //if (mAttachInfo.mThreadedRenderer != null)
-                //{
-                //    mAttachInfo.mThreadedRenderer.setStopped(mStopped);
-                //}
-
-                //if (LOCAL_LOGV)
-                //{
-                //    Log.v(mTag, "FINISHED DRAWING: " + mWindowAttributes.getTitle());
-                //}
-
-                //if (mSurfaceHolder != null && mSurface.isValid())
-                //{
-                //    SurfaceCallbackHelper sch = new SurfaceCallbackHelper(this::postDrawFinished);
-                //    SurfaceHolder.Callback callbacks[] = mSurfaceHolder.getCallbacks();
-
-                //    sch.dispatchSurfaceRedrawNeededAsync(mSurfaceHolder, callbacks);
-                //}
-                //else if (!usingAsyncReport)
-                //{
-                //    if (mAttachInfo.mThreadedRenderer != null)
-                //    {
-                //        mAttachInfo.mThreadedRenderer.fence();
-                //    }
-                //    pendingDrawFinished();
-                //}
+                Log.v(mTag, "Caught exception while drawing view: " + e);
             }
-            //if (mPerformContentCapture)
-            //{
-            //    performContentCaptureInitialReport();
-            //}
         }
 
         private void performLayout(
             object lp_unused //WindowManager.LayoutParams lp
             , int desiredWindowWidth, int desiredWindowHeight)
         {
-            mScrollMayChange = true;
-            mInLayout = true;
-
-            View host = mView;
-            if (host == null)
-            {
-                return;
-            }
-            //if (DEBUG_ORIENTATION || DEBUG_LAYOUT)
-            //{
-            //    Log.v(mTag, "Laying out " + host + " to (" +
-            //            host.getMeasuredWidth() + ", " + host.getMeasuredHeight() + ")");
-            //}
-
-            //Trace.traceBegin(Trace.TRACE_TAG_VIEW, "layout");
             try
             {
-                host.Layout(0, 0, host.getMeasuredWidth(), host.getMeasuredHeight());
+                mScrollMayChange = true;
+                mInLayout = true;
 
-                mInLayout = false;
-                int numViewsRequestingLayout = mLayoutRequesters.Count;
-                if (numViewsRequestingLayout > 0)
+                View host = mView;
+                if (host == null)
                 {
-                    // requestLayout() was called during layout.
-                    // If no layout-request flags are set on the requesting views, there is no problem.
-                    // If some requests are still pending, then we need to clear those flags and do
-                    // a full request/measure/layout pass to handle this situation.
-                    List<View> validLayoutRequesters = getValidLayoutRequesters(mLayoutRequesters,
-                            false);
-                    if (validLayoutRequesters != null)
+                    return;
+                }
+                if (DEBUG_ORIENTATION || DEBUG_LAYOUT)
+                {
+                    Log.v(mTag, "Laying out " + host + " to (" +
+                            host.getMeasuredWidth() + ", " + host.getMeasuredHeight() + ")");
+                }
+
+                //Trace.traceBegin(Trace.TRACE_TAG_VIEW, "layout");
+                try
+                {
+                    host.layout(0, 0, host.getMeasuredWidth(), host.getMeasuredHeight());
+
+                    mInLayout = false;
+                    int numViewsRequestingLayout = mLayoutRequesters.Count;
+                    if (numViewsRequestingLayout > 0)
                     {
-                        // Set this flag to indicate that any further requests are happening during
-                        // the second pass, which may result in posting those requests to the next
-                        // frame instead
-                        mHandlingLayoutInLayoutRequest = true;
-
-                        // Process fresh layout requests, then measure and layout
-                        int numValidRequests = validLayoutRequesters.Count;
-                        for (int i = 0; i < numValidRequests; ++i)
-                        {
-                            View view = validLayoutRequesters.ElementAt(i);
-                            Console.WriteLine("View: requestLayout() improperly called by " + view +
-                                    " during layout: running second layout pass");
-                            view.requestLayout();
-                        }
-                        measureHierarchy(host, null, null,
-                                desiredWindowWidth, desiredWindowHeight);
-                        mInLayout = true;
-                        host.Layout(0, 0, host.getMeasuredWidth(), host.getMeasuredHeight());
-
-                        mHandlingLayoutInLayoutRequest = false;
-
-                        // Check the valid requests again, this time without checking/clearing the
-                        // layout flags, since requests happening during the second pass get noop'd
-                        validLayoutRequesters = getValidLayoutRequesters(mLayoutRequesters, true);
+                        // requestLayout() was called during layout.
+                        // If no layout-request flags are set on the requesting views, there is no problem.
+                        // If some requests are still pending, then we need to clear those flags and do
+                        // a full request/measure/layout pass to handle this situation.
+                        List<View> validLayoutRequesters = getValidLayoutRequesters(mLayoutRequesters,
+                                false);
                         if (validLayoutRequesters != null)
                         {
-                            List<View> finalRequesters = validLayoutRequesters;
-                            // Post second-pass requests to the next frame
-                            //getRunQueue().post(new Runnable() {
-                            //    public override void run()
-                            //    {
-                            //        int numValidRequests = finalRequesters.size();
-                            //        for (int i = 0; i < numValidRequests; ++i)
-                            //        {
-                            //            View view = finalRequesters.get(i);
-                            //            Log.w("View", "requestLayout() improperly called by " + view +
-                            //                    " during second layout pass: posting in next frame");
-                            //            view.requestLayout();
-                            //        }
-                            //    }
-                            //});
+                            // Set this flag to indicate that any further requests are happening during
+                            // the second pass, which may result in posting those requests to the next
+                            // frame instead
+                            mHandlingLayoutInLayoutRequest = true;
+
+                            // Process fresh layout requests, then measure and layout
+                            int numValidRequests = validLayoutRequesters.Count;
+                            for (int i = 0; i < numValidRequests; ++i)
+                            {
+                                View view = validLayoutRequesters.ElementAt(i);
+                                Console.WriteLine(mTag, "requestLayout() improperly called by " + view +
+                                        " during layout: running second layout pass");
+                                view.requestLayout();
+                            }
+                            measureHierarchy(host, null, null,
+                                    desiredWindowWidth, desiredWindowHeight);
+                            mInLayout = true;
+                            host.layout(0, 0, host.getMeasuredWidth(), host.getMeasuredHeight());
+
+                            mHandlingLayoutInLayoutRequest = false;
+
+                            // Check the valid requests again, this time without checking/clearing the
+                            // layout flags, since requests happening during the second pass get noop'd
+                            validLayoutRequesters = getValidLayoutRequesters(mLayoutRequesters, true);
+                            if (validLayoutRequesters != null)
+                            {
+                                List<View> finalRequesters = validLayoutRequesters;
+                                // Post second-pass requests to the next frame
+                                //getRunQueue().post(new Runnable() {
+                                //    public override void run()
+                                //    {
+                                //        int numValidRequests = finalRequesters.size();
+                                //        for (int i = 0; i < numValidRequests; ++i)
+                                //        {
+                                //            View view = finalRequesters.get(i);
+                                //            Log.w("View", "requestLayout() improperly called by " + view +
+                                //                    " during second layout pass: posting in next frame");
+                                //            view.requestLayout();
+                                //        }
+                                //    }
+                                //});
+                            }
                         }
                     }
-
                 }
-            } finally {
-                //Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+                catch (Exception e)
+                {
+                    Log.v(mTag, "Caught exception while laying out view: " + e);
+                }
+                finally
+                {
+                    //Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+                }
+                mInLayout = false;
             }
-            mInLayout = false;
+            catch (Exception e)
+            {
+                Log.v(mTag, "Caught exception while laying out view: " + e);
+            }
         }
 
         /**
@@ -1631,8 +1755,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             if (scrollY != mScrollY)
             {
-                //if (DEBUG_INPUT_RESIZE) Log.v(mTag, "Pan scroll changed: old="
-                //        + mScrollY + " , new=" + scrollY);
+                if (DEBUG_INPUT_RESIZE) Log.v(mTag, "Pan scroll changed: old="
+                        + mScrollY + " , new=" + scrollY);
                 if (!immediate)
                 {
                     //if (mScroller == null)
@@ -1661,10 +1785,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 //return false;
             //}
 
-            //if (DEBUG_FPS)
-            //{
-            //    trackFPS();
-            //}
+            if (DEBUG_FPS)
+            {
+                trackFPS();
+            }
 
             //if (!sFirstDrawComplete)
             //{
@@ -1725,15 +1849,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 dirty.set(0, 0, (int)(mWidth * appScale + 0.5f), (int)(mHeight * appScale + 0.5f));
             }
 
-            //if (DEBUG_ORIENTATION || DEBUG_DRAW)
-            //{
-            //    Log.v(mTag, "Draw " + mView + "/"
-            //            + mWindowAttributes.getTitle()
-            //            + ": dirty={" + dirty.left + "," + dirty.top
-            //            + "," + dirty.right + "," + dirty.bottom + "} surface="
-            //            + surface + " surface.isValid()=" + surface.isValid() + ", appScale:" +
-            //            appScale + ", width=" + mWidth + ", height=" + mHeight);
-            //}
+            if (DEBUG_ORIENTATION || DEBUG_DRAW)
+            {
+                Log.v(mTag, "Draw " + mView
+                        + ": dirty={" + dirty.left + "," + dirty.top
+                        + "," + dirty.right + "," + dirty.bottom + "} , appScale:" +
+                        appScale + ", width=" + mWidth + ", height=" + mHeight);
+            }
 
             //mAttachInfo.mTreeObserver.dispatchOnDraw();
 
@@ -1766,7 +1888,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 //}
             }
 
-            mAttachInfo.mDrawingTime = (int)(NanoTime.nanoTime() / 1000000); // mChoreographer.getFrameTimeNanos() / TimeUtils.NANOS_PER_MS;
+            mAttachInfo.mDrawingTime = (int)(NanoTime.currentTimeNanos() / 1000000); // mChoreographer.getFrameTimeNanos() / TimeUtils.NANOS_PER_MS;
 
             bool useAsyncReport = false;
             if (!dirty.isEmpty() || mIsAnimating || accessibilityFocusDirty
@@ -1979,8 +2101,9 @@ namespace Xamarin_DAW.Skia_UI_Kit
         {
             if (mContentParent != null)
             {
-                canvasWidth = canvas.Width();
-                canvasHeight = canvas.Height();
+                canvasWidth = canvas.getWidth();
+                canvasHeight = canvas.getHeight();
+                frame = new Rect(0, 0, canvasWidth, canvasHeight);
                 performTraversals();
                 mContentParent.draw(canvas);
             }
