@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using SkiaSharp;
 using Xamarin.Forms;
 using Xamarin.Forms.Internals;
 
@@ -330,14 +331,32 @@ namespace Xamarin_DAW
         {
             public override void OnCreate()
             {
-                Skia_UI_Kit.Box boxView = new Skia_UI_Kit.Box()
+
+                var box_a = new Skia_UI_Kit.Box()
                 {
-                    mLayoutParams = new() {
+                    mLayoutParams = new()
+                    {
                         width = 40,
                         height = 40
-                    }
+                    },
+                    paint = new SKPaint() { Color = new SKColor(50, 50, 50) }
                 };
-                SetContentView(boxView);
+
+                //Skia_UI_Kit.LinearLayout linearLayout = new();
+
+                //linearLayout.setOrientation(Skia_UI_Kit.LinearLayout.VERTICAL);
+
+                //linearLayout.addView();
+                //linearLayout.addView(new Skia_UI_Kit.Box()
+                //{
+                //    mLayoutParams = new()
+                //    {
+                //        width = 40,
+                //        height = 40
+                //    },
+                //    paint = new SKPaint() { Color = new SKColor(50, 50, 178) }
+                //});
+                SetContentView(box_a);
             }
         }
 

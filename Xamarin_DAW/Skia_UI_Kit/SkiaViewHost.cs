@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using SkiaSharp;
 using SkiaSharp.Views.Forms;
 using Xamarin.Forms;
@@ -77,12 +78,22 @@ namespace Xamarin_DAW.Skia_UI_Kit
                         canvas = null;
                     }
                     canvas = SKCanvasExtensions.CreateHardwareAcceleratedCanvas(null, GRContext, e.BackendRenderTarget.Width, e.BackendRenderTarget.Height);
+                    Application.onSizeChanged(e.BackendRenderTarget.Width, e.BackendRenderTarget.Height);
                 }
 
                 Application.Draw(canvas);
 
                 canvas.Flush();
                 canvas.DrawToCanvas(e.Surface.Canvas, 0, 0);
+            }
+        }
+
+        protected override void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            base.OnPropertyChanged(propertyName);
+            if (IsVisibleProperty.PropertyName == propertyName)
+            {
+                Application.handleAppVisibility(IsVisible);
             }
         }
 

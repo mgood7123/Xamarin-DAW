@@ -10,7 +10,7 @@
          *
          * @return a ViewParent or null if this ViewParent does not have a parent
          */
-        abstract Parent getParent();
+        abstract public Parent getParent();
 
         /**
          * Unbuffered dispatch has been requested by a child of this view parent.
@@ -31,5 +31,12 @@
         void requestChildFocus(View view1, View view2);
         View focusSearch(View view, int direction);
         void focusableViewAvailable(View view);
+        bool isLayoutRequested();
+        void requestLayout();
+        void invalidate();
+        bool canResolveLayoutDirection() { return false; }
+
+        bool isLayoutDirectionResolved();
+        int getLayoutDirection();
     }
 }

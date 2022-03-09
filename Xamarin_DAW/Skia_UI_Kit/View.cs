@@ -16,13 +16,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using SkiaSharp;
-using SkiaSharp.Extended;
-using SkiaSharp.Views.Forms;
-using Xamarin.Forms;
-using Xamarin.Forms.Internals;
 using Xamarin_DAW.UI.Utils;
 
 namespace Xamarin_DAW.Skia_UI_Kit
@@ -82,40 +77,20 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         public readonly System.Collections.ObjectModel.ReadOnlyCollection<View> Children;
         private List<View> InternalChildren;
+
         public Parent mParent { get; private set; }
-        Parent Parent.getParent() => mParent;
-        public Gravity gravity = Gravity.GRAVITY_NONE;
+
+        public Parent getParent()
+        {
+            return mParent;
+        }
+
         public LayoutParams mLayoutParams { get; set; }
+
         public int MeasuredWidth { get; protected set; }
         public int MeasuredHeight { get; protected set; }
 
         private int l = 0, t = 0, r = 0, b = 0;
-
-        private bool invalidated;
-
-        public enum Gravity
-        {
-            GRAVITY_NONE,
-            GRAVITY_LEFT,
-            GRAVITY_CENTER,
-            GRAVITY_RIGHT
-        };
-
-        public void invalidate()
-        {
-            invalidated = true;
-            if (mParent is not null)
-            {
-                if (mParent is View view)
-                {
-                    view.invalidate();
-                }
-                else if (mParent is Application application)
-                {
-                    application.invalidate();
-                }
-            }
-        }
 
         /**
          * <summary>A MeasureSpec encapsulates the layout requirements passed from parent to child.
@@ -199,6 +174,21 @@ namespace Xamarin_DAW.Skia_UI_Kit
             public static int makeMeasureSpec(int size, int mode)
             {
                 return (size & ~MODE_MASK) | (mode & MODE_MASK);
+            }
+
+            /**
+             * Like {@link #makeMeasureSpec(int, int)}, but any spec with a mode of UNSPECIFIED
+             * will automatically get a size of 0. Older apps expect this.
+             *
+             * @hide internal use only for compatibility with system widgets and older apps
+             */
+            public static int makeSafeMeasureSpec(int size, int mode)
+            {
+                if (sUseZeroUnspecifiedMeasureSpec && mode == UNSPECIFIED)
+                {
+                    return 0;
+                }
+                return makeMeasureSpec(size, mode);
             }
 
             /**
@@ -303,31 +293,9 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
-        public class ViewRootImpl
+        internal class AttachInfo
         {
-            internal bool isInLayout()
-            {
-                throw new NotImplementedException();
-            }
-
-            internal static bool isInTouchMode()
-            {
-                throw new NotImplementedException();
-            }
-
-            internal static bool isViewDescendantOf(View view, View oldFocus)
-            {
-                throw new NotImplementedException();
-            }
-
-            internal void cancelInvalidate(View view)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        internal class AttachInfo {
-            public ViewRootImpl mViewRootImpl = new();
+            internal ViewRootImpl mViewRootImpl = new();
             internal bool mInTouchMode;
             internal bool mViewVisibilityChanged;
             internal bool mDebugLayout = true; // draw layout bounds
@@ -345,9 +313,18 @@ namespace Xamarin_DAW.Skia_UI_Kit
             internal bool mScalingRequired = false;
             internal int mDrawingTime;
             internal bool mHardwareAccelerated = true;
+
+            /**
+             * Used to track which View originated a requestLayout() call, used when
+             * requestLayout() is called during layout.
+             */
+            internal View mViewRequestingLayout;
+
         }
 
         internal AttachInfo mAttachInfo;
+
+        protected int mLayoutDirection;
 
         /**
          * The layout insets in pixels, that is the distance in pixels between the
@@ -400,7 +377,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     return false; // We are not attached to the view root
                 }
-                if (!(parent is View)) {
+                if (!(parent is View))
+                {
                     return true;
                 }
                 current = (View)parent;
@@ -443,7 +421,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     return false;
                 }
-                if (!(parent is View)) {
+                if (!(parent is View))
+                {
                     return false;
                 }
                 current = (View)parent;
@@ -621,8 +600,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
             // Transfer all pending runnables.
             //if (mRunQueue != null)
             //{
-                //mRunQueue.executeActions(info.mHandler);
-                //mRunQueue = null;
+            //mRunQueue.executeActions(info.mHandler);
+            //mRunQueue = null;
             //}
             //performCollectViewAttributes(mAttachInfo, visibility);
             onAttachedToWindow();
@@ -754,7 +733,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         {
             //if ((mPrivateFlags & PFLAG_REQUEST_TRANSPARENT_REGIONS) != 0)
             //{
-                //mParent.requestTransparentRegion(this);
+            //mParent.requestTransparentRegion(this);
             //}
 
             mPrivateFlags &= ~PFLAG_IS_LAID_OUT;
@@ -769,8 +748,542 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             //if (isFocused())
             //{
-                //notifyFocusChangeToImeFocusController(true /* hasFocus */);
+            //notifyFocusChangeToImeFocusController(true /* hasFocus */);
             //}
+        }
+
+        /**
+         * Returns the width of the vertical scrollbar.
+         *
+         * @return The width in pixels of the vertical scrollbar or 0 if there
+         *         is no vertical scrollbar.
+         */
+        public int getVerticalScrollbarWidth()
+        {
+            ScrollabilityCache cache = mScrollCache;
+            if (cache != null)
+            {
+                ScrollBarDrawable scrollBar = cache.scrollBar;
+                if (scrollBar != null)
+                {
+                    int size = scrollBar.getSize(true);
+                    if (size <= 0)
+                    {
+                        size = cache.scrollBarSize;
+                    }
+                    return size;
+                }
+                return 0;
+            }
+            return 0;
+        }
+
+        /**
+         * Returns the height of the horizontal scrollbar.
+         *
+         * @return The height in pixels of the horizontal scrollbar or 0 if
+         *         there is no horizontal scrollbar.
+         */
+        protected int getHorizontalScrollbarHeight()
+        {
+            ScrollabilityCache cache = mScrollCache;
+            if (cache != null)
+            {
+                ScrollBarDrawable scrollBar = cache.scrollBar;
+                if (scrollBar != null)
+                {
+                    int size = scrollBar.getSize(false);
+                    if (size <= 0)
+                    {
+                        size = cache.scrollBarSize;
+                    }
+                    return size;
+                }
+                return 0;
+            }
+            return 0;
+        }
+
+        /**
+         * Position of the vertical scroll bar.
+         */
+        private int mVerticalScrollbarPosition = 0;
+
+        /**
+         * Position the scroll bar at the default position as determined by the system.
+         */
+        public const int SCROLLBAR_POSITION_DEFAULT = 0;
+
+        /**
+         * Position the scroll bar along the left edge.
+         */
+        public const int SCROLLBAR_POSITION_LEFT = 1;
+
+        /**
+         * Position the scroll bar along the right edge.
+         */
+        public const int SCROLLBAR_POSITION_RIGHT = 2;
+
+
+        /**
+         * @hide
+         */
+        protected void internalSetPadding(int left, int top, int right, int bottom)
+        {
+            mUserPaddingLeft = left;
+            mUserPaddingRight = right;
+            mUserPaddingBottom = bottom;
+
+            int viewFlags = mViewFlags;
+            bool changed = false;
+
+            // Common case is there are no scroll bars.
+            if ((viewFlags & (SCROLLBARS_VERTICAL | SCROLLBARS_HORIZONTAL)) != 0)
+            {
+                if ((viewFlags & SCROLLBARS_VERTICAL) != 0)
+                {
+                    int offset = (viewFlags & SCROLLBARS_INSET_MASK) == 0
+                            ? 0 : getVerticalScrollbarWidth();
+                    switch (mVerticalScrollbarPosition)
+                    {
+                        case SCROLLBAR_POSITION_DEFAULT:
+                            if (isLayoutRtl())
+                            {
+                                left += offset;
+                            }
+                            else
+                            {
+                                right += offset;
+                            }
+                            break;
+                        case SCROLLBAR_POSITION_RIGHT:
+                            right += offset;
+                            break;
+                        case SCROLLBAR_POSITION_LEFT:
+                            left += offset;
+                            break;
+                    }
+                }
+                if ((viewFlags & SCROLLBARS_HORIZONTAL) != 0)
+                {
+                    bottom += (viewFlags & SCROLLBARS_INSET_MASK) == 0
+                            ? 0 : getHorizontalScrollbarHeight();
+                }
+            }
+
+            if (mPaddingLeft != left)
+            {
+                changed = true;
+                mPaddingLeft = left;
+            }
+            if (mPaddingTop != top)
+            {
+                changed = true;
+                mPaddingTop = top;
+            }
+            if (mPaddingRight != right)
+            {
+                changed = true;
+                mPaddingRight = right;
+            }
+            if (mPaddingBottom != bottom)
+            {
+                changed = true;
+                mPaddingBottom = bottom;
+            }
+
+            if (changed)
+            {
+                requestLayout();
+                //invalidateOutline();
+            }
+        }
+
+        /**
+         * @return true if the layout direction is inherited.
+         *
+         * @hide
+         */
+        public bool isLayoutDirectionInherited()
+        {
+            return (getRawLayoutDirection() == LAYOUT_DIRECTION_INHERIT);
+        }
+
+        /**
+         * @return true if layout direction has been resolved.
+         */
+        public bool isLayoutDirectionResolved()
+        {
+            return (mPrivateFlags2 & PFLAG2_LAYOUT_DIRECTION_RESOLVED) == PFLAG2_LAYOUT_DIRECTION_RESOLVED;
+        }
+
+        /**
+         * Return if padding has been resolved
+         *
+         * @hide
+         */
+        bool isPaddingResolved()
+        {
+            return (mPrivateFlags2 & PFLAG2_PADDING_RESOLVED) == PFLAG2_PADDING_RESOLVED;
+        }
+
+        /**
+         * Return true if the application tag in the AndroidManifest has set "supportRtl" to true
+         */
+        private bool hasRtlSupport()
+        {
+            return false;
+        }
+
+        /**
+         * Return true if we are in RTL compatibility mode (either before Jelly Bean MR1 or
+         * RTL not supported)
+         */
+        private bool isRtlCompatibilityMode()
+        {
+            return !hasRtlSupport();
+        }
+
+        /**
+         * @return true if RTL properties need resolution.
+         *
+         */
+        private bool needRtlPropertiesResolution()
+        {
+            return (mPrivateFlags2 & ALL_RTL_PROPERTIES_RESOLVED) != ALL_RTL_PROPERTIES_RESOLVED;
+        }
+
+        /**
+         * Returns the layout direction for this view.
+         *
+         * @return One of {@link #LAYOUT_DIRECTION_LTR},
+         *   {@link #LAYOUT_DIRECTION_RTL},
+         *   {@link #LAYOUT_DIRECTION_INHERIT} or
+         *   {@link #LAYOUT_DIRECTION_LOCALE}.
+         *
+         * @attr ref android.R.styleable#View_layoutDirection
+         *
+         * @hide
+         */
+        public int getRawLayoutDirection() {
+            return (mPrivateFlags2 & PFLAG2_LAYOUT_DIRECTION_MASK) >> PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT;
+        }
+
+        /**
+         * Resolve and cache the layout direction. LTR is set initially. This is implicitly supposing
+         * that the parent directionality can and will be resolved before its children.
+         *
+         * @return true if resolution has been done, false otherwise.
+         *
+         * @hide
+         */
+        public bool resolveLayoutDirection()
+        {
+            // Clear any previous layout direction resolution
+            mPrivateFlags2 &= ~PFLAG2_LAYOUT_DIRECTION_RESOLVED_MASK;
+
+            if (hasRtlSupport())
+            {
+                // Set resolved depending on layout direction
+                switch ((mPrivateFlags2 & PFLAG2_LAYOUT_DIRECTION_MASK) >>
+                        PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT)
+                {
+                    case LAYOUT_DIRECTION_INHERIT:
+                        // We cannot resolve yet. LTR is by default and let the resolution happen again
+                        // later to get the correct resolved value
+                        if (!canResolveLayoutDirection()) return false;
+
+                        // Parent has not yet resolved, LTR is still the default
+                        if (!mParent.isLayoutDirectionResolved()) return false;
+
+                        if (mParent.getLayoutDirection() == LAYOUT_DIRECTION_RTL)
+                        {
+                            mPrivateFlags2 |= PFLAG2_LAYOUT_DIRECTION_RESOLVED_RTL;
+                        }
+                        break;
+                    case LAYOUT_DIRECTION_RTL:
+                        mPrivateFlags2 |= PFLAG2_LAYOUT_DIRECTION_RESOLVED_RTL;
+                        break;
+                    //case LAYOUT_DIRECTION_LOCALE:
+                    //    if ((LAYOUT_DIRECTION_RTL ==
+                    //            TextUtils.getLayoutDirectionFromLocale(Locale.getDefault())))
+                    //    {
+                    //        mPrivateFlags2 |= PFLAG2_LAYOUT_DIRECTION_RESOLVED_RTL;
+                    //    }
+                    //    break;
+                    default:
+                        // Nothing to do, LTR by default
+                        break;
+                }
+            }
+
+            // Set to resolved
+            mPrivateFlags2 |= PFLAG2_LAYOUT_DIRECTION_RESOLVED;
+            return true;
+        }
+
+        /**
+         * Check if layout direction resolution can be done.
+         *
+         * @return true if layout direction resolution can be done otherwise return false.
+         */
+        public bool canResolveLayoutDirection()
+        {
+            switch (getRawLayoutDirection())
+            {
+                case LAYOUT_DIRECTION_INHERIT:
+                    if (mParent != null)
+                    {
+                        return mParent.canResolveLayoutDirection();
+                    }
+                    return false;
+
+                default:
+                    return true;
+            }
+        }
+
+        /**
+         * Resolve all RTL related properties.
+         *
+         * @return true if resolution of RTL properties has been done
+         *
+         * @hide
+         */
+        public bool resolveRtlPropertiesIfNeeded()
+        {
+            if (!needRtlPropertiesResolution()) return false;
+
+            // Order is important here: LayoutDirection MUST be resolved first
+            if (!isLayoutDirectionResolved())
+            {
+                resolveLayoutDirection();
+                resolveLayoutParams();
+            }
+            // ... then we can resolve the others properties depending on the resolved LayoutDirection.
+            //if (!isTextDirectionResolved())
+            //{
+            //    resolveTextDirection();
+            //}
+            //if (!isTextAlignmentResolved())
+            //{
+            //    resolveTextAlignment();
+            //}
+            // Should resolve Drawables before Padding because we need the layout direction of the
+            // Drawable to correctly resolve Padding.
+            //if (!areDrawablesResolved())
+            //{
+            //    resolveDrawables();
+            //}
+            if (!isPaddingResolved())
+            {
+                resolvePadding();
+            }
+            onRtlPropertiesChanged(getLayoutDirection());
+            return true;
+        }
+
+        /**
+         * Called when any RTL property (layout direction or text direction or text alignment) has
+         * been changed.
+         *
+         * Subclasses need to override this method to take care of cached information that depends on the
+         * resolved layout direction, or to inform child views that inherit their layout direction.
+         *
+         * The default implementation does nothing.
+         *
+         * @param layoutDirection the direction of the layout
+         *
+         * @see #LAYOUT_DIRECTION_LTR
+         * @see #LAYOUT_DIRECTION_RTL
+         */
+        public void onRtlPropertiesChanged(int layoutDirection)
+        {
+        }
+
+        /**
+         * Reset the resolved layout direction. Layout direction will be resolved during a call to
+         * {@link #onMeasure(int, int)}.
+         *
+         * @hide
+         */
+        public void resetResolvedLayoutDirection()
+        {
+            // Reset the current resolved bits
+            mPrivateFlags2 &= ~PFLAG2_LAYOUT_DIRECTION_RESOLVED_MASK;
+        }
+
+        /**
+         * Reset resolution of all RTL related properties.
+         *
+         * @hide
+         */
+        public void resetRtlProperties()
+        {
+            resetResolvedLayoutDirection();
+            //resetResolvedTextDirection();
+            //resetResolvedTextAlignment();
+            resetResolvedPadding();
+            //resetResolvedDrawables();
+        }
+
+        /**
+         * Set the layout direction for this view. This will propagate a reset of layout direction
+         * resolution to the view's children and resolve layout direction for this view.
+         *
+         * @param layoutDirection the layout direction to set. Should be one of:
+         *
+         * {@link #LAYOUT_DIRECTION_LTR},
+         * {@link #LAYOUT_DIRECTION_RTL},
+         * {@link #LAYOUT_DIRECTION_INHERIT},
+         * {@link #LAYOUT_DIRECTION_LOCALE}.
+         *
+         * Resolution will be done if the value is set to LAYOUT_DIRECTION_INHERIT. The resolution
+         * proceeds up the parent chain of the view to get the value. If there is no parent, then it
+         * will return the default {@link #LAYOUT_DIRECTION_LTR}.
+         *
+         * @attr ref android.R.styleable#View_layoutDirection
+         */
+        public void setLayoutDirection(int layoutDirection) {
+            if (getRawLayoutDirection() != layoutDirection) {
+                // Reset the current layout direction and the resolved one
+                mPrivateFlags2 &= ~PFLAG2_LAYOUT_DIRECTION_MASK;
+                resetRtlProperties();
+                // Set the new layout direction (filtered)
+                mPrivateFlags2 |=
+                        ((layoutDirection << PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT) & PFLAG2_LAYOUT_DIRECTION_MASK);
+                // We need to resolve all RTL properties as they all depend on layout direction
+                resolveRtlPropertiesIfNeeded();
+                requestLayout();
+                invalidate(true);
+            }
+        }
+
+        /**
+         * Returns the resolved layout direction for this view.
+         *
+         * @return {@link #LAYOUT_DIRECTION_RTL} if the layout direction is RTL or returns
+         * {@link #LAYOUT_DIRECTION_LTR} if the layout direction is not RTL.
+         *
+         * For compatibility, this will return {@link #LAYOUT_DIRECTION_LTR} if API version
+         * is lower than {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}.
+         *
+         * @attr ref android.R.styleable#View_layoutDirection
+         */
+        public int getLayoutDirection() {
+            return ((mPrivateFlags2 & PFLAG2_LAYOUT_DIRECTION_RESOLVED_RTL) ==
+                    PFLAG2_LAYOUT_DIRECTION_RESOLVED_RTL) ? LAYOUT_DIRECTION_RTL : LAYOUT_DIRECTION_LTR;
+        }
+
+        Drawable mBackground;
+        /**
+         * Temporary Rect currently for use in setBackground().  This will probably
+         * be extended in the future to hold our own class with more than just
+         * a Rect. :)
+         */
+        static readonly System.Threading.ThreadLocal<Rect> sThreadLocal = new (() => { return new Rect(); } );
+
+        /**
+         * Resolves padding depending on layout direction, if applicable, and
+         * recomputes internal padding values to adjust for scroll bars.
+         *
+         * @hide
+         */
+        public void resolvePadding()
+        {
+            int resolvedLayoutDirection = getLayoutDirection();
+
+            if (!isRtlCompatibilityMode())
+            {
+                // Post Jelly Bean MR1 case: we need to take the resolved layout direction into account.
+                // If start / end padding are defined, they will be resolved (hence overriding) to
+                // left / right or right / left depending on the resolved layout direction.
+                // If start / end padding are not defined, use the left / right ones.
+                if (mBackground != null && (!mLeftPaddingDefined || !mRightPaddingDefined))
+                {
+                    Rect padding = sThreadLocal.Value;
+                    if (padding == null)
+                    {
+                        padding = new Rect();
+                        sThreadLocal.Value = padding;
+                    }
+                    //mBackground.getPadding(padding);
+                    if (!mLeftPaddingDefined)
+                    {
+                        mUserPaddingLeftInitial = padding.left;
+                    }
+                    if (!mRightPaddingDefined)
+                    {
+                        mUserPaddingRightInitial = padding.right;
+                    }
+                }
+                switch (resolvedLayoutDirection)
+                {
+                    case LAYOUT_DIRECTION_RTL:
+                        if (mUserPaddingStart != UNDEFINED_PADDING)
+                        {
+                            mUserPaddingRight = mUserPaddingStart;
+                        }
+                        else
+                        {
+                            mUserPaddingRight = mUserPaddingRightInitial;
+                        }
+                        if (mUserPaddingEnd != UNDEFINED_PADDING)
+                        {
+                            mUserPaddingLeft = mUserPaddingEnd;
+                        }
+                        else
+                        {
+                            mUserPaddingLeft = mUserPaddingLeftInitial;
+                        }
+                        break;
+                    case LAYOUT_DIRECTION_LTR:
+                    default:
+                        if (mUserPaddingStart != UNDEFINED_PADDING)
+                        {
+                            mUserPaddingLeft = mUserPaddingStart;
+                        }
+                        else
+                        {
+                            mUserPaddingLeft = mUserPaddingLeftInitial;
+                        }
+                        if (mUserPaddingEnd != UNDEFINED_PADDING)
+                        {
+                            mUserPaddingRight = mUserPaddingEnd;
+                        }
+                        else
+                        {
+                            mUserPaddingRight = mUserPaddingRightInitial;
+                        }
+                        break;
+                }
+
+                mUserPaddingBottom = (mUserPaddingBottom >= 0) ? mUserPaddingBottom : mPaddingBottom;
+            }
+
+            internalSetPadding(mUserPaddingLeft, mPaddingTop, mUserPaddingRight, mUserPaddingBottom);
+            onRtlPropertiesChanged(resolvedLayoutDirection);
+
+            mPrivateFlags2 |= PFLAG2_PADDING_RESOLVED;
+        }
+
+        /**
+         * Reset the resolved layout direction.
+         *
+         * @hide
+         */
+        public void resetResolvedPadding()
+        {
+            resetResolvedPaddingInternal();
+        }
+
+        /**
+         * Used when we only want to reset *this* view's padding and not trigger overrides
+         * in ViewGroup that reset children too.
+         */
+        void resetResolvedPaddingInternal()
+        {
+            mPrivateFlags2 &= ~PFLAG2_PADDING_RESOLVED;
         }
 
         /**
@@ -827,7 +1340,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //resetDisplayList();
             if (mAttachInfo != null)
             {
-                mAttachInfo.mViewRootImpl.cancelInvalidate(this);
+                // not implemented
+                // we have no way of cancelling an invalidation in a cross-platform way
+
+                //mAttachInfo.mViewRootImpl.cancelInvalidate(this);
             }
         }
 
@@ -842,44 +1358,44 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         internal int mPrivateFlags;
 
-        internal const int PFLAG_WANTS_FOCUS =                   0x00000001;
-        internal const int PFLAG_FOCUSED =                       0x00000002;
-        internal const int PFLAG_IS_LAID_OUT =                   0x00000004;
-        internal const int PFLAG_MEASURE_NEEDED_BEFORE_LAYOUT =  0x00000008;
-        internal const int PFLAG_HAS_BOUNDS =                    0x00000010;
-        internal const int PFLAG_DRAWN =                         0x00000020;
-        internal const int PFLAG_SKIP_DRAW =                     0x00000040;
-        internal const int PFLAG_IS_ROOT_NAMESPACE =             0x00000080;
-        internal const int PFLAG_DRAWABLE_STATE_DIRTY =          0x00000100;
-        internal const int PFLAG_MEASURED_DIMENSION_SET =        0x00000200;
-        internal const int PFLAG_FORCE_LAYOUT =                  0x00000400;
-        internal const int PFLAG_LAYOUT_REQUIRED =               0x00000800;
-        internal const int PFLAG_PRESSED =                       0x00001000;
-        internal const int PFLAG_DRAWING_CACHE_VALID =           0x00002000;
+        internal const int PFLAG_WANTS_FOCUS = 0x00000001;
+        internal const int PFLAG_FOCUSED = 0x00000002;
+        internal const int PFLAG_IS_LAID_OUT = 0x00000004;
+        internal const int PFLAG_MEASURE_NEEDED_BEFORE_LAYOUT = 0x00000008;
+        internal const int PFLAG_HAS_BOUNDS = 0x00000010;
+        internal const int PFLAG_DRAWN = 0x00000020;
+        internal const int PFLAG_SKIP_DRAW = 0x00000040;
+        internal const int PFLAG_IS_ROOT_NAMESPACE = 0x00000080;
+        internal const int PFLAG_DRAWABLE_STATE_DIRTY = 0x00000100;
+        internal const int PFLAG_MEASURED_DIMENSION_SET = 0x00000200;
+        internal const int PFLAG_FORCE_LAYOUT = 0x00000400;
+        internal const int PFLAG_LAYOUT_REQUIRED = 0x00000800;
+        internal const int PFLAG_PRESSED = 0x00001000;
+        internal const int PFLAG_DRAWING_CACHE_VALID = 0x00002000;
 
         /**
          * Set by {@link #setScrollContainer(bool)}.
          */
-        internal const int PFLAG_SCROLL_CONTAINER =              0x00004000;
+        internal const int PFLAG_SCROLL_CONTAINER = 0x00004000;
 
         /**
          * Set by {@link #setScrollContainer(bool)}.
          */
-        internal const int PFLAG_SCROLL_CONTAINER_ADDED =        0x00008000;
+        internal const int PFLAG_SCROLL_CONTAINER_ADDED = 0x00008000;
 
         /**
          * View flag indicating whether this view was invalidated (fully or partially.)
          *
          * @hide
          */
-        internal const int PFLAG_DIRTY =                         0x00010000;
+        internal const int PFLAG_DIRTY = 0x00010000;
 
         /**
          * Mask for {@link #PFLAG_DIRTY}.
          *
          * @hide
          */
-        internal const int PFLAG_DIRTY_MASK =                    0x00010000;
+        internal const int PFLAG_DIRTY_MASK = 0x00010000;
 
         /**
          * Flag indicating that the view is a root of a keyboard navigation cluster.
@@ -887,8 +1403,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * @see #isKeyboardNavigationCluster()
          * @see #setKeyboardNavigationCluster(bool)
          */
-        internal const int PFLAG_CLUSTER =                       0x00020000;
-        internal const int PFLAG_FOCUSED_BY_DEFAULT =            0x00040000;
+        internal const int PFLAG_CLUSTER = 0x00020000;
+        internal const int PFLAG_FOCUSED_BY_DEFAULT = 0x00040000;
 
         /**
          * Indicates a prepressed state;
@@ -898,17 +1414,17 @@ namespace Xamarin_DAW.Skia_UI_Kit
          *
          * @hide
          */
-        internal const int PFLAG_PREPRESSED =                    0x00080000;
+        internal const int PFLAG_PREPRESSED = 0x00080000;
 
         /**
          * Indicates whether the view is temporarily detached.
          *
          * @hide
          */
-        internal const int PFLAG_CANCEL_NEXT_UP_EVENT =          0x00100000;
+        internal const int PFLAG_CANCEL_NEXT_UP_EVENT = 0x00100000;
 
         /** {@hide} */
-        internal const int PFLAG_ACTIVATED =                     0x00200000;
+        internal const int PFLAG_ACTIVATED = 0x00200000;
 
         /**
          * Flag indicating that the view is temporarily detached from the parent view.
@@ -916,24 +1432,24 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * @see #onStartTemporaryDetach()
          * @see #onFinishTemporaryDetach()
          */
-        internal const int PFLAG_TEMPORARY_DETACH =              0x00400000;
+        internal const int PFLAG_TEMPORARY_DETACH = 0x00400000;
 
         /**
          * Indicates if the view is just detached.
          */
-        internal const int PFLAG_DETACHED =                      0x00800000;
+        internal const int PFLAG_DETACHED = 0x00800000;
 
         /**
          * The last aggregated visibility. Used to detect when it truly changes.
          */
-        internal const int PFLAG_AGGREGATED_VISIBLE =            0x01000000;
+        internal const int PFLAG_AGGREGATED_VISIBLE = 0x01000000;
 
         /**
          * Flag indicating whether a view failed the quickReject() check in draw(). This condition
          * is used to check whether later changes to the view's transform should invalidate the
          * view to force the quickReject test to run again.
          */
-        internal const int PFLAG_VIEW_QUICK_REJECTED =          0x02000000;
+        internal const int PFLAG_VIEW_QUICK_REJECTED = 0x02000000;
 
         /**
          * Indicates that this view was specifically invalidated, not just dirtied because some
@@ -943,7 +1459,138 @@ namespace Xamarin_DAW.Skia_UI_Kit
          *
          * @hide
          */
-        internal const int PFLAG_INVALIDATED =                   0x40000000;
+        internal const int PFLAG_INVALIDATED = 0x40000000;
+
+        // for layout flags because bitshifting is involved
+        internal int mPrivateFlags2;
+
+        /** @hide */
+        public enum LayoutDir
+        {
+                LAYOUT_DIRECTION_LTR,
+                LAYOUT_DIRECTION_RTL,
+                LAYOUT_DIRECTION_INHERIT,
+                LAYOUT_DIRECTION_LOCALE
+        }
+
+        /** @hide */
+        public enum ResolvedLayoutDir
+        {
+            LAYOUT_DIRECTION_LTR,
+            LAYOUT_DIRECTION_RTL
+        }
+
+        /**
+         * A flag to indicate that the layout direction of this view has not been defined yet.
+         * @hide
+         */
+        public const int LAYOUT_DIRECTION_UNDEFINED = LayoutDirection.UNDEFINED;
+
+        /**
+         * Horizontal layout direction of this view is from Left to Right.
+         * Use with {@link #setLayoutDirection}.
+         */
+        public const int LAYOUT_DIRECTION_LTR = LayoutDirection.LTR;
+
+        /**
+         * Horizontal layout direction of this view is from Right to Left.
+         * Use with {@link #setLayoutDirection}.
+         */
+        public const int LAYOUT_DIRECTION_RTL = LayoutDirection.RTL;
+
+        /**
+         * Horizontal layout direction of this view is inherited from its parent.
+         * Use with {@link #setLayoutDirection}.
+         */
+        public const int LAYOUT_DIRECTION_INHERIT = LayoutDirection.INHERIT;
+
+
+
+        // not implemented
+
+        ///**
+        // * Horizontal layout direction of this view is from deduced from the default language
+        // * script for the locale. Use with {@link #setLayoutDirection}.
+        // */
+        //public const int LAYOUT_DIRECTION_LOCALE = LayoutDirection.LOCALE;
+
+
+
+
+        /**
+         * Bit shift to get the horizontal layout direction. (bits after DRAG_HOVERED)
+         * @hide
+         */
+        const int PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT = 2;
+
+        /**
+         * Mask for use with private flags indicating bits used for horizontal layout direction.
+         * @hide
+         */
+        const int PFLAG2_LAYOUT_DIRECTION_MASK = 0x00000003 << PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT;
+
+        /**
+         * Indicates whether the view horizontal layout direction has been resolved and drawn to the
+         * right-to-left direction.
+         * @hide
+         */
+        const int PFLAG2_LAYOUT_DIRECTION_RESOLVED_RTL = 4 << PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT;
+
+        /**
+         * Indicates whether the view horizontal layout direction has been resolved.
+         * @hide
+         */
+        const int PFLAG2_LAYOUT_DIRECTION_RESOLVED = 8 << PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT;
+
+        /**
+         * Mask for use with private flags indicating bits used for resolved horizontal layout direction.
+         * @hide
+         */
+        const int PFLAG2_LAYOUT_DIRECTION_RESOLVED_MASK = 0x0000000C
+                << PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT;
+
+        /*
+         * Array of horizontal layout direction flags for mapping attribute "layoutDirection" to correct
+         * flag value.
+         * @hide
+         */
+        private readonly int[] LAYOUT_DIRECTION_FLAGS = {
+                LAYOUT_DIRECTION_LTR,
+                LAYOUT_DIRECTION_RTL,
+                LAYOUT_DIRECTION_INHERIT
+                //,LAYOUT_DIRECTION_LOCALE
+        };
+
+        /**
+         * Default horizontal layout direction.
+         */
+        private const int LAYOUT_DIRECTION_DEFAULT = LAYOUT_DIRECTION_INHERIT;
+
+        /**
+         * Flag indicating that start/end padding has been resolved into left/right padding
+         * for use in measurement, layout, drawing, etc. This is set by {@link #resolvePadding()}
+         * and checked by {@link #measure(int, int)} to determine if padding needs to be resolved
+         * during measurement. In some special cases this is required such as when an adapter-based
+         * view measures prospective children without attaching them to a window.
+         */
+        internal const int PFLAG2_PADDING_RESOLVED = 0x04000000;
+
+        /**
+         * Default horizontal layout direction.
+         * @hide
+         */
+        internal const int LAYOUT_DIRECTION_RESOLVED_DEFAULT = LAYOUT_DIRECTION_LTR;
+
+        /**
+         * Group of bits indicating that RTL properties resolution is done.
+         */
+        const int ALL_RTL_PROPERTIES_RESOLVED = PFLAG2_LAYOUT_DIRECTION_RESOLVED
+                //| PFLAG2_TEXT_DIRECTION_RESOLVED
+            //| PFLAG2_TEXT_ALIGNMENT_RESOLVED
+            | PFLAG2_PADDING_RESOLVED
+            //| PFLAG2_DRAWABLE_RESOLVED
+            ;
+
 
         int mMeasuredWidth;
         int mMeasuredHeight;
@@ -959,6 +1606,72 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * of this view to at least this amount.
          */
         private int mMinWidth;
+
+        /**
+         * The right padding after RTL resolution, but before taking account of scroll bars.
+         *
+         * @hide
+         */
+        protected int mUserPaddingRight;
+
+        /**
+         * The resolved bottom padding before taking account of scroll bars.
+         *
+         * @hide
+         */
+        protected int mUserPaddingBottom;
+
+        /**
+         * The left padding after RTL resolution, but before taking account of scroll bars.
+         *
+         * @hide
+         */
+        protected int mUserPaddingLeft;
+
+        /**
+         * Cache the paddingStart set by the user to append to the scrollbar's size.
+         *
+         */
+        int mUserPaddingStart;
+
+        /**
+         * Cache the paddingEnd set by the user to append to the scrollbar's size.
+         *
+         */
+        int mUserPaddingEnd;
+
+        /**
+         * The left padding as set by a setter method, a background's padding, or via XML property
+         * resolution. This value is the padding before LTR resolution or taking account of scrollbars.
+         *
+         * @hide
+         */
+        int mUserPaddingLeftInitial;
+
+        /**
+         * The right padding as set by a setter method, a background's padding, or via XML property
+         * resolution. This value is the padding before LTR resolution or taking account of scrollbars.
+         *
+         * @hide
+         */
+        int mUserPaddingRightInitial;
+
+        /**
+         * Default undefined padding
+         */
+        private const int UNDEFINED_PADDING = int.MinValue;
+
+        /**
+         * Cache if a left padding has been defined explicitly via padding, horizontal padding,
+         * or leftPadding in XML, or by setPadding(...) or setRelativePadding(...)
+         */
+        private bool mLeftPaddingDefined = false;
+
+        /**
+         * Cache if a right padding has been defined explicitly via padding, horizontal padding,
+         * or rightPadding in XML, or by setPadding(...) or setRelativePadding(...)
+         */
+        private bool mRightPaddingDefined = false;
 
         int mOldWidthMeasureSpec = int.MinValue;
         int mOldHeightMeasureSpec = int.MinValue;
@@ -1087,7 +1800,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 if (cacheIndex < 0)
                 {
                     // measure ourselves, this should set the measured dimension flag back
-                    OnMeasure(widthMeasureSpec, heightMeasureSpec);
+                    onMeasure(widthMeasureSpec, heightMeasureSpec);
                     mPrivateFlags &= ~PFLAG_MEASURE_NEEDED_BEFORE_LAYOUT;
                 }
                 else
@@ -1117,12 +1830,78 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     (long)mMeasuredHeight & 0xffffffffL); // suppress sign extension
         }
 
-        private void setMeasuredDimension(int measuredWidth, int measuredHeight)
+        protected void setMeasuredDimension(int measuredWidth, int measuredHeight)
         {
             mMeasuredWidth = measuredWidth;
             mMeasuredHeight = measuredHeight;
 
             mPrivateFlags |= PFLAG_MEASURED_DIMENSION_SET;
+        }
+
+        /**
+         * Merge two states as returned by {@link #getMeasuredState()}.
+         * @param curState The current state as returned from a view or the result
+         * of combining multiple views.
+         * @param newState The new view state to combine.
+         * @return Returns a new integer reflecting the combination of the two
+         * states.
+         */
+        public static int combineMeasuredStates(int curState, int newState)
+        {
+            return curState | newState;
+        }
+
+        /**
+         * Version of {@link #resolveSizeAndState(int, int, int)}
+         * returning only the {@link #MEASURED_SIZE_MASK} bits of the result.
+         */
+        public static int resolveSize(int size, int measureSpec)
+        {
+            return resolveSizeAndState(size, measureSpec, 0) & MEASURED_SIZE_MASK;
+        }
+
+        /**
+         * Utility to reconcile a desired size and state, with constraints imposed
+         * by a MeasureSpec. Will take the desired size, unless a different size
+         * is imposed by the constraints. The returned value is a compound integer,
+         * with the resolved size in the {@link #MEASURED_SIZE_MASK} bits and
+         * optionally the bit {@link #MEASURED_STATE_TOO_SMALL} set if the
+         * resulting size is smaller than the size the view wants to be.
+         *
+         * @param size How big the view wants to be.
+         * @param measureSpec Constraints imposed by the parent.
+         * @param childMeasuredState Size information bit mask for the view's
+         *                           children.
+         * @return Size information bit mask as defined by
+         *         {@link #MEASURED_SIZE_MASK} and
+         *         {@link #MEASURED_STATE_TOO_SMALL}.
+         */
+        public static int resolveSizeAndState(int size, int measureSpec, int childMeasuredState)
+        {
+            int specMode = MeasureSpec.getMode(measureSpec);
+            int specSize = MeasureSpec.getSize(measureSpec);
+            int result;
+            switch (specMode)
+            {
+                case MeasureSpec.AT_MOST:
+                    if (specSize < size)
+                    {
+                        result = specSize | MEASURED_STATE_TOO_SMALL;
+                    }
+                    else
+                    {
+                        result = size;
+                    }
+                    break;
+                case MeasureSpec.EXACTLY:
+                    result = specSize;
+                    break;
+                case MeasureSpec.UNSPECIFIED:
+                default:
+                    result = size;
+                    break;
+            }
+            return (int)((uint)result | ((uint)childMeasuredState & MEASURED_STATE_MASK));
         }
 
         /**
@@ -1216,7 +1995,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public void setMinimumHeight(int minHeight)
         {
             mMinHeight = minHeight;
-            //requestLayout();
+            requestLayout();
         }
 
         /**
@@ -1247,7 +2026,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public void setMinimumWidth(int minWidth)
         {
             mMinWidth = minWidth;
-            //requestLayout();
+            requestLayout();
 
         }
 
@@ -1292,6 +2071,36 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     mPaddingLeft + mPaddingRight, lp.width);
             int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
                     mPaddingTop + mPaddingBottom, lp.height);
+
+            child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
+        }
+
+        /**
+         * Ask one of the children of this view to measure itself, taking into
+         * account both the MeasureSpec requirements for this view and its padding
+         * and margins. The child must have MarginLayoutParams The heavy lifting is
+         * done in getChildMeasureSpec.
+         *
+         * @param child The child to measure
+         * @param parentWidthMeasureSpec The width requirements for this view
+         * @param widthUsed Extra space that has been used up by the parent
+         *        horizontally (possibly by other children of the parent)
+         * @param parentHeightMeasureSpec The height requirements for this view
+         * @param heightUsed Extra space that has been used up by the parent
+         *        vertically (possibly by other children of the parent)
+         */
+        protected void measureChildWithMargins(View child,
+                int parentWidthMeasureSpec, int widthUsed,
+                int parentHeightMeasureSpec, int heightUsed)
+        {
+            MarginLayoutParams lp = (MarginLayoutParams)child.getLayoutParams();
+
+            int childWidthMeasureSpec = getChildMeasureSpec(parentWidthMeasureSpec,
+                    mPaddingLeft + mPaddingRight + lp.leftMargin + lp.rightMargin
+                            + widthUsed, lp.width);
+            int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
+                    mPaddingTop + mPaddingBottom + lp.topMargin + lp.bottomMargin
+                            + heightUsed, lp.height);
 
             child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
         }
@@ -1401,7 +2210,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return MeasureSpec.makeMeasureSpec(resultSize, resultMode);
         }
 
-        public virtual void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+        public virtual void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
         {
             int viewWidth = getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec);
             int viewHeight = getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec);
@@ -1443,10 +2252,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
             layout(FloatToPixel(l), FloatToPixel(t), FloatToPixel(r), FloatToPixel(b));
         }
 
-        int mLeft;
-        int mTop;
-        int mBottom;
-        int mRight;
+        protected int mLeft;
+        protected int mTop;
+        protected int mBottom;
+        protected int mRight;
 
         /**
          * Returns true if this view has been through at least one layout since it
@@ -1643,11 +2452,6 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return (mPrivateFlags & PFLAG_FOCUSED) != 0;
         }
 
-        internal void requestLayout()
-        {
-            throw new NotImplementedException();
-        }
-
         /**
          * Called internally by the view system when a new view is getting focus.
          * This is what clears the old focus.
@@ -1806,6 +2610,52 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         internal const int CONTEXT_CLICKABLE = 0x00800000;
 
+        /**
+         * The scrollbar style to display the scrollbars inside the content area,
+         * without increasing the padding. The scrollbars will be overlaid with
+         * translucency on the view's content.
+         */
+        public const int SCROLLBARS_INSIDE_OVERLAY = 0;
+
+        /**
+         * The scrollbar style to display the scrollbars inside the padded area,
+         * increasing the padding of the view. The scrollbars will not overlap the
+         * content area of the view.
+         */
+        public const int SCROLLBARS_INSIDE_INSET = 0x01000000;
+
+        /**
+         * The scrollbar style to display the scrollbars at the edge of the view,
+         * without increasing the padding. The scrollbars will be overlaid with
+         * translucency.
+         */
+        public const int SCROLLBARS_OUTSIDE_OVERLAY = 0x02000000;
+
+        /**
+         * The scrollbar style to display the scrollbars at the edge of the view,
+         * increasing the padding of the view. The scrollbars will only overlap the
+         * background, if any.
+         */
+        public const int SCROLLBARS_OUTSIDE_INSET = 0x03000000;
+
+        /**
+         * Mask to check if the scrollbar style is overlay or inset.
+         * {@hide}
+         */
+        const int SCROLLBARS_INSET_MASK = 0x01000000;
+
+        /**
+         * Mask to check if the scrollbar style is inside or outside.
+         * {@hide}
+         */
+        const int SCROLLBARS_OUTSIDE_MASK = 0x02000000;
+
+        /**
+         * Mask for scrollbar style.
+         * {@hide}
+         */
+        const int SCROLLBARS_STYLE_MASK = 0x03000000;
+
         internal int mViewFlags;
 
         private bool canTakeFocus()
@@ -1823,15 +2673,6 @@ namespace Xamarin_DAW.Skia_UI_Kit
         private View mDefaultFocus;
         // The last child of this View which held focus within the current cluster
         View mFocusedInCluster;
-
-        void Parent.clearChildFocus(View child)
-        {
-            mFocused = null;
-            if (mParent != null)
-            {
-                mParent.clearChildFocus(this);
-            }
-        }
 
         bool rootViewRequestFocus()
         {
@@ -1952,7 +2793,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
         private bool hasParentWantsFocus()
         {
             Parent parent = mParent;
-            while (parent is View) {
+            while (parent is View)
+            {
                 View pv = (View)parent;
                 if ((pv.mPrivateFlags & PFLAG_WANTS_FOCUS) != 0)
                 {
@@ -2423,7 +3265,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             View parent = this;
 
-            while (parent.mParent != null && parent.mParent is View) {
+            while (parent.mParent != null && parent.mParent is View)
+            {
                 parent = (View)parent.mParent;
             }
 
@@ -2488,7 +3331,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     /* Give up focus if we are no longer focusable */
                     clearFocus();
-                    if (mParent is View) {
+                    if (mParent is View)
+                    {
                         ((View)mParent).clearFocusedInCluster();
                     }
                 }
@@ -2559,20 +3403,22 @@ namespace Xamarin_DAW.Skia_UI_Kit
             if ((changed & GONE) != 0)
             {
                 //needGlobalAttributesUpdate(false);
-                //requestLayout();
+                requestLayout();
 
                 if (((mViewFlags & VISIBILITY_MASK) == GONE))
                 {
                     if (hasFocus())
                     {
                         clearFocus();
-                        if (mParent is View) {
+                        if (mParent is View)
+                        {
                             ((View)mParent).clearFocusedInCluster();
                         }
                     }
                     //clearAccessibilityFocus();
                     //destroyDrawingCache();
-                    if (mParent is View) {
+                    if (mParent is View)
+                    {
                         // GONE views noop invalidation, so invalidate the parent
                         ((View)mParent).invalidate(true);
                     }
@@ -2604,7 +3450,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                         if (hasFocus())
                         {
                             clearFocus();
-                            if (mParent is View) {
+                            if (mParent is View)
+                            {
                                 ((View)mParent).clearFocusedInCluster();
                             }
                         }
@@ -2625,12 +3472,14 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     cleanupDraw();
                 }
 
-                if (mParent is View) {
+                if (mParent is View)
+                {
                     View parent = (View)mParent;
                     //parent.onChildVisibilityChanged(this, (changed & VISIBILITY_MASK),
                     //        newVisibility);
                     parent.invalidate(true);
-                } else if (mParent != null)
+                }
+                else if (mParent != null)
                 {
                     //Parent.invalidateChild(this, null);
                 }
@@ -2699,15 +3548,15 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     mPrivateFlags &= ~PFLAG_SKIP_DRAW;
                 }
-                //requestLayout();
+                requestLayout();
                 invalidate(true);
             }
 
             //if ((changed & KEEP_SCREEN_ON) != 0)
             //{
-            //    if (Parent != null && mAttachInfo != null && !mAttachInfo.mRecomputeGlobalAttributes)
+            //    if (mParent != null && mAttachInfo != null && !mAttachInfo.mRecomputeGlobalAttributes)
             //    {
-            //        Parent.recomputeViewAttributes(this);
+            //        mParent.recomputeViewAttributes(this);
             //    }
             //}
 
@@ -2757,6 +3606,31 @@ namespace Xamarin_DAW.Skia_UI_Kit
         internal const int DRAW_MASK = 0x00000080;
 
         /**
+         * <p>This view doesn't show scrollbars.</p>
+         * {@hide}
+         */
+        const int SCROLLBARS_NONE = 0x00000000;
+
+        /**
+         * <p>This view shows horizontal scrollbars.</p>
+         * {@hide}
+         */
+        const int SCROLLBARS_HORIZONTAL = 0x00000100;
+
+        /**
+         * <p>This view shows vertical scrollbars.</p>
+         * {@hide}
+         */
+        const int SCROLLBARS_VERTICAL = 0x00000200;
+
+        /**
+         * <p>Mask for use with setFlags indicating bits used for indicating which
+         * scrollbars are enabled.</p>
+         * {@hide}
+         */
+        const int SCROLLBARS_MASK = 0x00000300;
+
+        /**
          * Returns true if this view is focusable or if it contains a reachable View
          * for which {@link #hasFocusable()} returns {@code true}. A "reachable hasFocusable()"
          * is a view whose parents do not block descendants focus.
@@ -2786,7 +3660,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
         {
             if (!isFocusableInTouchMode())
             {
-                for (Parent p = mParent; p is View; p = p.getParent()) {
+                for (Parent p = mParent; p is View; p = p.getParent())
+                {
                     View g = (View)p;
                     if (g.shouldBlockFocusForTouchscreen())
                     {
@@ -2841,7 +3716,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         int mID = NO_ID;
 
-        class MatchIdPredicate {
+        class MatchIdPredicate
+        {
             public int mId;
 
             public static implicit operator Predicate<View>(MatchIdPredicate match) => t => t.mID == match.mId;
@@ -2931,7 +3807,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 }
 
                 Parent parent = start.mParent;
-                if (parent == null || !(parent is View)) {
+                if (parent == null || !(parent is View))
+                {
                     return null;
                 }
 
@@ -3432,7 +4309,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         View findKeyboardNavigationCluster()
         {
-            if (mParent is View) {
+            if (mParent is View)
+            {
                 View cluster = ((View)mParent).findKeyboardNavigationCluster();
                 if (cluster != null)
                 {
@@ -3479,7 +4357,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         private void setFocusedInCluster(View cluster)
         {
-            if (this is View) {
+            if (this is View)
+            {
                 ((View)this).mFocusedInCluster = null;
             }
             if (cluster == this)
@@ -3488,7 +4367,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
             Parent parent = mParent;
             View child = this;
-            while (parent is View) {
+            while (parent is View)
+            {
                 ((View)parent).mFocusedInCluster = child;
                 if (parent == cluster)
                 {
@@ -3510,7 +4390,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     // Going from one cluster to another, so save last-focused.
                     // This covers cluster jumps because they are always FOCUS_DOWN
                     oldFocus.setFocusedInCluster(oldCluster);
-                    if (!(oldFocus.mParent is View)) {
+                    if (!(oldFocus.mParent is View))
+                    {
                         return;
                     }
                     if (direction == FOCUS_FORWARD || direction == FOCUS_BACKWARD)
@@ -3522,7 +4403,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     else if (oldFocus is View
                         && ((View)oldFocus).getDescendantFocusability()
                                 == View.FOCUS_AFTER_DESCENDANTS
-                        && ViewRootImpl.isViewDescendantOf(this, oldFocus)) {
+                        && ViewRootImpl.isViewDescendantOf(this, oldFocus))
+                    {
                         // This means oldFocus is not focusable since it obviously has a focusable
                         // child (this). Don't restore focus to it in the future.
                         ((View)oldFocus.mParent).clearFocusedInCluster(oldFocus);
@@ -3660,7 +4542,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
         {
             bool focusableInTouchMode = true;
             Parent ancestor = mParent;
-            while (ancestor is View) {
+            while (ancestor is View)
+            {
                 View vgAncestor = (View)ancestor;
                 if (vgAncestor.getDescendantFocusability() == FOCUS_BLOCK_DESCENDANTS
                         || (!focusableInTouchMode && vgAncestor.shouldBlockFocusForTouchscreen()))
@@ -3719,7 +4602,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         {
             if ((mPrivateFlags & PFLAG_MEASURE_NEEDED_BEFORE_LAYOUT) != 0)
             {
-                OnMeasure(mOldWidthMeasureSpec, mOldHeightMeasureSpec);
+                onMeasure(mOldWidthMeasureSpec, mOldHeightMeasureSpec);
                 mPrivateFlags &= ~PFLAG_MEASURE_NEEDED_BEFORE_LAYOUT;
             }
 
@@ -3732,7 +4615,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             if (changed || (mPrivateFlags & PFLAG_LAYOUT_REQUIRED) == PFLAG_LAYOUT_REQUIRED)
             {
-                OnLayout(changed, l, t, r, b);
+                onLayout(changed, l, t, r, b);
 
                 //if (shouldDrawRoundScrollbar())
                 //{
@@ -3857,13 +4740,15 @@ namespace Xamarin_DAW.Skia_UI_Kit
             // backtracking" of requestFocus during layout, so don't touch focus here.
             if (!sCanFocusZeroSized && isLayoutValid()
                     // Don't touch focus if animating
-                    && !(mParent is View && ((View)mParent).isLayoutSuppressed())) {
+                    && !(mParent is View && ((View)mParent).isLayoutSuppressed()))
+            {
                 if (newWidth <= 0 || newHeight <= 0)
                 {
                     if (hasFocus())
                     {
                         clearFocus();
-                        if (mParent is View) {
+                        if (mParent is View)
+                        {
                             ((View)mParent).clearFocusedInCluster();
                         }
                     }
@@ -3891,7 +4776,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         protected void invalidateParentCaches()
         {
-            if (mParent is View) {
+            if (mParent is View)
+            {
                 ((View)mParent).mPrivateFlags |= PFLAG_INVALIDATED;
             }
         }
@@ -3969,6 +4855,19 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 //notifySubtreeAccessibilityStateChangedIfNeeded();
             }
             return changed;
+        }
+
+        /**
+         * Invalidate the whole view. If the view is visible,
+         * {@link #onDraw(android.graphics.Canvas)} will be called at some point in
+         * the future.
+         * <p>
+         * This must be called from a UI thread. To call from a non-UI thread, call
+         * {@link #postInvalidate()}.
+         */
+        public void invalidate()
+        {
+            invalidate(true);
         }
 
         /**
@@ -4135,21 +5034,23 @@ namespace Xamarin_DAW.Skia_UI_Kit
          */
         public void setLayoutParams(View.LayoutParams layout_params)
         {
-            if (layout_params == null) {
+            if (layout_params == null)
+            {
                 throw new Exception("Layout parameters cannot be null");
             }
             mLayoutParams = layout_params;
             resolveLayoutParams();
-            if (mParent is View) {
+            if (mParent is View)
+            {
                 ((View)mParent).onSetLayoutParams(this, layout_params);
             }
-            //requestLayout();
+            requestLayout();
         }
 
         /** @hide */
         protected void onSetLayoutParams(View child, LayoutParams layoutParams)
         {
-            //requestLayout();
+            requestLayout();
         }
 
         /**
@@ -4178,7 +5079,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * @param right Right position, relative to parent
          * @param bottom Bottom position, relative to parent
          */
-        protected virtual void OnLayout(bool changed, int l, int t, int r, int b)
+        protected virtual void onLayout(bool changed, int l, int t, int r, int b)
         {
             int count = getChildCount();
 
@@ -4355,7 +5256,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
         }
 
         class Drawable { };
-        class ScrollBarDrawable : Drawable { }
+        class ScrollBarDrawable : Drawable
+        {
+            internal int getSize(bool v)
+            {
+                return 0;
+            }
+        }
         class Interpolator
         {
             public Interpolator(int v1, int v2)
@@ -4828,8 +5735,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
 
 
-        public class RenderNode { }
-        RenderNode mRenderNode;
+        SKPicture mRenderNode;
 
         /**
          * This method is used to cause children of this View to restore or recreate their
@@ -4891,9 +5797,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * Gets the RenderNode for the view, and updates its DisplayList (if needed and supported)
          * @hide
          */
-        public RenderNode updateDisplayListIfDirty()
+        public SKPicture updateDisplayListIfDirty()
         {
-            RenderNode renderNode = mRenderNode;
             //if (!canHaveDisplayList())
             //{
             //    // can't populate RenderNode, don't try
@@ -4914,7 +5819,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     mPrivateFlags &= ~PFLAG_DIRTY_MASK;
                     dispatchGetDisplayList();
 
-                    return renderNode; // no work needed
+                    return mRenderNode; // no work needed
                 }
 
                 // If we got here, we're recreating it. Mark it as such to ensure that
@@ -4929,10 +5834,12 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 // instead of being "stateful" like other RenderNode properties
                 //renderNode.clearStretch();
 
+                if (mRenderNode != null) mRenderNode.Dispose();
                 SKPictureRecorder pictureRecorder = new SKPictureRecorder();
 
                 SKCanvas canvas = pictureRecorder.BeginRecording(new SKRect(0, 0, width, height));
                 canvas.setIsHardwareAccelerated(true);
+                canvas.setWidthHeight(width, height);
 
                 try
                 {
@@ -4947,36 +5854,36 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     //}
                     //else
                     //{
-                        //computeScroll();
+                    //computeScroll();
 
-                        canvas.Translate(-mScrollX, -mScrollY);
-                        mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
-                        mPrivateFlags &= ~PFLAG_DIRTY_MASK;
+                    canvas.Translate(-mScrollX, -mScrollY);
+                    mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
+                    mPrivateFlags &= ~PFLAG_DIRTY_MASK;
 
-                        // Fast path for layouts with no backgrounds
-                        if ((mPrivateFlags & PFLAG_SKIP_DRAW) == PFLAG_SKIP_DRAW)
+                    // Fast path for layouts with no backgrounds
+                    if ((mPrivateFlags & PFLAG_SKIP_DRAW) == PFLAG_SKIP_DRAW)
+                    {
+                        dispatchDraw(canvas);
+                        //drawAutofilledHighlight(canvas);
+                        //if (mOverlay != null && !mOverlay.isEmpty())
+                        //{
+                        //    mOverlay.getOverlayView().draw(canvas);
+                        //}
+                        if (isShowingLayoutBounds())
                         {
-                            dispatchDraw(canvas);
-                            //drawAutofilledHighlight(canvas);
-                            //if (mOverlay != null && !mOverlay.isEmpty())
-                            //{
-                            //    mOverlay.getOverlayView().draw(canvas);
-                            //}
-                            if (isShowingLayoutBounds())
-                            {
-                                debugDrawFocus(canvas);
-                            }
+                            debugDrawFocus(canvas);
                         }
-                        else
-                        {
-                            draw(canvas);
-                        }
+                    }
+                    else
+                    {
+                        draw(canvas);
+                    }
                     //}
                 }
                 finally
                 {
-                    pictureRecorder.EndRecording();
-                    setDisplayListProperties(renderNode);
+                    mRenderNode = pictureRecorder.EndRecording();
+                    setDisplayListProperties(mRenderNode);
                 }
             }
             else
@@ -4984,14 +5891,14 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
                 mPrivateFlags &= ~PFLAG_DIRTY_MASK;
             }
-            return renderNode;
+            return mRenderNode;
         }
 
         /**
          * This method is called by getDisplayList() when a display list is recorded for a View.
          * It pushes any properties to the RenderNode that aren't managed by the RenderNode.
          */
-        void setDisplayListProperties(RenderNode renderNode)
+        void setDisplayListProperties(SKPicture renderNode)
         {
             if (renderNode != null)
             {
@@ -5040,25 +5947,6 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
-        // Draw call heirarchy
-        //
-        // [ ViewRootImpl ] ->
-        //   [ ViewRootImpl # draw ] ->
-        //     [ ThreadedRenderer # draw ] ->
-        //       [ ThreadedRenderer updateRootDisplayList ] ->
-        //         [ View # updateDisplayListIfDirty ] ->
-        //           [ View # Draw ] ->
-        //           | [ View # onDraw ]            /* DRAW CONTENT */
-        //           | [ View # dispatchDraw ] /* DRAW CHILDREN */ ->
-        //           |   [ View # drawChild ] ->
-        //           |     [ View -> draw(Canvas, View, long) ] ->
-        //           |       if (drawingWithRenderNode) {
-        //           |         [ View # updateDisplayListIfDirty ] ->
-        //           |-------------[ View # Draw ]
-        //           |       } else if (!drawingWithDrawingCache) {
-        //           ------------[ View # Draw ]
-        //                   }
-
         /**
          * Manually render this view (and all of its children) to the given Canvas.
          * The view must have already done a full layout before this function is
@@ -5098,7 +5986,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             if (!verticalEdges && !horizontalEdges)
             {
                 // Step 3, draw the content
-                OnDraw(canvas);
+                onDraw(canvas);
 
                 // Step 4, draw the children
                 dispatchDraw(canvas);
@@ -5108,7 +5996,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 // Overlay is part of the content and draws beneath Foreground
                 //if (mOverlay != null && !mOverlay.isEmpty())
                 //{
-                    //mOverlay.getOverlayView().dispatchDraw(canvas);
+                //mOverlay.getOverlayView().dispatchDraw(canvas);
                 //}
 
                 // Step 6, draw decorations (foreground, scrollbars)
@@ -5333,7 +6221,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
-        protected virtual void OnDraw(SKCanvas canvas)
+        protected virtual void onDraw(SKCanvas canvas)
         {
         }
 
@@ -5434,7 +6322,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
             // search and offset up to the parent
             while ((theParent != null)
                     && (theParent is View)
-                && (theParent != this)) {
+                && (theParent != this))
+            {
 
                 if (offsetFromChildToParent)
                 {
@@ -5560,7 +6449,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 mPrivateFlags &= ~PFLAG_FOCUSED_BY_DEFAULT;
             }
 
-            if (mParent is View) {
+            if (mParent is View)
+            {
                 if (isFocusedByDefault)
                 {
                     ((View)mParent).setDefaultFocus(this);
@@ -5582,7 +6472,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             mDefaultFocus = child;
 
-            if (mParent is View) {
+            if (mParent is View)
+            {
                 ((View)mParent).setDefaultFocus(this);
             }
         }
@@ -5619,7 +6510,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 }
             }
 
-            if (mParent is View) {
+            if (mParent is View)
+            {
                 ((View)mParent).clearDefaultFocus(this);
             }
         }
@@ -5782,7 +6674,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
              *
              * @hide
              */
-            public string debug(string output)
+            public virtual string debug(string output)
             {
                 return output + "View.LayoutParams={ width="
                         + sizeToString(width) + ", height=" + sizeToString(height) + " }";
@@ -6055,7 +6947,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 switch (mMarginFlags & LAYOUT_DIRECTION_MASK)
                 {
                     //case View.LAYOUT_DIRECTION_RTL:
-                        //return rightMargin;
+                    //return rightMargin;
                     //case View.LAYOUT_DIRECTION_LTR:
                     default:
                         return leftMargin;
@@ -6092,7 +6984,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 switch (mMarginFlags & LAYOUT_DIRECTION_MASK)
                 {
                     //case View.LAYOUT_DIRECTION_RTL:
-                        //return leftMargin;
+                    //return leftMargin;
                     //case View.LAYOUT_DIRECTION_LTR:
                     default:
                         return rightMargin;
@@ -6121,7 +7013,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             public void setLayoutDirection(int layoutDirection)
             {
                 //if (layoutDirection != View.LAYOUT_DIRECTION_LTR &&
-                        //layoutDirection != View.LAYOUT_DIRECTION_RTL) return;
+                //layoutDirection != View.LAYOUT_DIRECTION_RTL) return;
                 if (layoutDirection != (mMarginFlags & LAYOUT_DIRECTION_MASK))
                 {
                     mMarginFlags &= ~LAYOUT_DIRECTION_MASK;
@@ -6189,13 +7081,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     // or end margin is not defined, just set it to default "0".
                     switch (mMarginFlags & LAYOUT_DIRECTION_MASK)
                     {
-                        //case View.LAYOUT_DIRECTION_RTL:
-                        //    leftMargin = (endMargin > DEFAULT_MARGIN_RELATIVE) ?
-                        //            endMargin : DEFAULT_MARGIN_RESOLVED;
-                        //    rightMargin = (startMargin > DEFAULT_MARGIN_RELATIVE) ?
-                        //            startMargin : DEFAULT_MARGIN_RESOLVED;
-                        //    break;
-                        //case View.LAYOUT_DIRECTION_LTR:
+                        case View.LAYOUT_DIRECTION_RTL:
+                            leftMargin = (endMargin > DEFAULT_MARGIN_RELATIVE) ?
+                                    endMargin : DEFAULT_MARGIN_RESOLVED;
+                            rightMargin = (startMargin > DEFAULT_MARGIN_RELATIVE) ?
+                                    startMargin : DEFAULT_MARGIN_RESOLVED;
+                            break;
+                        case View.LAYOUT_DIRECTION_LTR:
                         default:
                             leftMargin = (startMargin > DEFAULT_MARGIN_RELATIVE) ?
                                     startMargin : DEFAULT_MARGIN_RESOLVED;
@@ -6235,6 +7127,20 @@ namespace Xamarin_DAW.Skia_UI_Kit
                         paint);
             }
         }
+
+        /**
+         * Indicates whether or not this view's layout is right-to-left. This is resolved from
+         * layout attribute and/or the inherited value from the parent
+         *
+         * @return true if the layout is right-to-left.
+         *
+         * @hide
+         */
+        public bool isLayoutRtl()
+        {
+            return false; // (getLayoutDirection() == LAYOUT_DIRECTION_RTL);
+        }
+
 
         /**
          * Top position of this view relative to its parent.
@@ -6398,7 +7304,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
             if (
                 //isHardwareAccelerated() &&
                 mParent is View
-            ) {
+            )
+            {
                 ((View)mParent).invalidate(true);
             }
         }
@@ -6601,6 +7508,15 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
         }
 
+        /**
+         * Prior to N, some ViewGroups would not convert LayoutParams properly even though both extend
+         * MarginLayoutParams. For instance, converting LinearLayout.LayoutParams to
+         * RelativeLayout.LayoutParams would lose margin information. This is fixed on N but target API
+         * check is implemented for backwards compatibility.
+         *
+         * {@hide}
+         */
+        protected const bool sPreserveMarginParamsInLayoutParamConversion = true; // always true
 
 
 
@@ -6646,7 +7562,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * @return an instance of {@link android.view.View.LayoutParams} or one
          *         of its descendants
          */
-        protected LayoutParams generateLayoutParams(LayoutParams p)
+        protected virtual LayoutParams generateLayoutParams(LayoutParams p)
         {
             return p;
         }
@@ -6658,7 +7574,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
          *
          * @return a set of default layout parameters or null
          */
-        protected LayoutParams generateDefaultLayoutParams()
+        protected virtual LayoutParams generateDefaultLayoutParams()
         {
             return new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
         }
@@ -6676,7 +7592,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             view.mLayoutParams = layout_params;
         }
 
-        protected bool checkLayoutParams(View.LayoutParams p)
+        protected virtual bool checkLayoutParams(View.LayoutParams p)
         {
             return p != null;
         }
@@ -6718,9 +7634,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 throw new Exception("Cannot add a null child view to a View");
             }
             LayoutParams layout_params = child.mLayoutParams;
-            if (layout_params == null) {
+            if (layout_params == null)
+            {
                 layout_params = generateDefaultLayoutParams();
-                if (layout_params == null) {
+                if (layout_params == null)
+                {
                     throw new Exception(
                             "generateDefaultLayoutParams() cannot return null  ");
                 }
@@ -6782,7 +7700,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             // addViewInner() will call child.requestLayout() when setting the new LayoutParams
             // therefore, we call requestLayout() on ourselves before, so that the child's request
             // will be blocked at our level
-            //requestLayout();
+            requestLayout();
             invalidate(true);
             addViewInner(child, index, layout_params, false);
         }
@@ -7050,7 +7968,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             View[] children = mChildren;
             //if (!(mTransitioningViews != null && mTransitioningViews.contains(children[index])))
             //{
-                //children[index].Parent = null;
+            //children[index].Parent = null;
             //}
             int count = mChildrenCount;
             if (index == count - 1)
@@ -7178,7 +8096,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public void removeViewAt(int index)
         {
             removeViewInternal(index, getChildAt(index));
-            //requestLayout();
+            requestLayout();
             invalidate(true);
         }
 
@@ -7195,7 +8113,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public void removeViews(int start, int count)
         {
             removeViewsInternal(start, count);
-            //requestLayout();
+            requestLayout();
             invalidate(true);
         }
 
@@ -7377,7 +8295,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 this.clearChildFocus(focused);
                 //if (!rootViewRequestFocus())
                 //{
-                    //notifyGlobalFocusCleared(focused);
+                //notifyGlobalFocusCleared(focused);
                 //}
             }
         }
@@ -7393,7 +8311,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public void removeAllViews()
         {
             removeAllViewsInLayout();
-            //requestLayout();
+            requestLayout();
             invalidate(true);
         }
 
@@ -7492,7 +8410,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             onViewAdded(child);
             //if (mOnHierarchyChangeListener != null)
             //{
-                //mOnHierarchyChangeListener.onChildViewAdded(this, child);
+            //mOnHierarchyChangeListener.onChildViewAdded(this, child);
             //}
         }
 
@@ -7511,7 +8429,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             onViewRemoved(child);
             //if (mOnHierarchyChangeListener != null)
             //{
-                //mOnHierarchyChangeListener.onChildViewRemoved(this, child);
+            //mOnHierarchyChangeListener.onChildViewRemoved(this, child);
             //}
         }
 
@@ -7593,7 +8511,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
             //if (child.hasUnhandledKeyListener())
             //{
-                //incrementChildUnhandledKeyListeners();
+            //incrementChildUnhandledKeyListeners();
             //}
 
             bool childHasFocus = child.hasFocus();
@@ -7615,10 +8533,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //    ai.mKeepScreenOn = lastKeepOn;
             //}
 
-            //if (child.isLayoutDirectionInherited())
-            //{
-                //child.resetRtlProperties();
-            //}
+            if (child.isLayoutDirectionInherited())
+            {
+                child.resetRtlProperties();
+            }
 
             dispatchViewAdded(child);
 
@@ -7629,7 +8547,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             //if (child.hasTransientState())
             //{
-                //childHasTransientStateChanged(child, true);
+            //childHasTransientStateChanged(child, true);
             //}
 
             //if (child.getVisibility() != View.GONE)
@@ -7715,6 +8633,94 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return mChildren[index];
         }
 
+        /**
+         * Returns the top padding of this view.
+         *
+         * @return the top padding in pixels
+         */
+        public int getPaddingTop()
+        {
+            return mPaddingTop;
+        }
+
+        /**
+         * Returns the bottom padding of this view. If there are inset and enabled
+         * scrollbars, this value may include the space required to display the
+         * scrollbars as well.
+         *
+         * @return the bottom padding in pixels
+         */
+        public int getPaddingBottom()
+        {
+            return mPaddingBottom;
+        }
+
+        /**
+         * Returns the left padding of this view. If there are inset and enabled
+         * scrollbars, this value may include the space required to display the
+         * scrollbars as well.
+         *
+         * @return the left padding in pixels
+         */
+        public int getPaddingLeft()
+        {
+            if (!isPaddingResolved())
+            {
+                resolvePadding();
+            }
+            return mPaddingLeft;
+        }
+
+        /**
+         * Returns the start padding of this view depending on its resolved layout direction.
+         * If there are inset and enabled scrollbars, this value may include the space
+         * required to display the scrollbars as well.
+         *
+         * @return the start padding in pixels
+         */
+        public int getPaddingStart()
+        {
+            if (!isPaddingResolved())
+            {
+                resolvePadding();
+            }
+            return (getLayoutDirection() == LAYOUT_DIRECTION_RTL) ?
+                    mPaddingRight : mPaddingLeft;
+        }
+
+        /**
+         * Returns the right padding of this view. If there are inset and enabled
+         * scrollbars, this value may include the space required to display the
+         * scrollbars as well.
+         *
+         * @return the right padding in pixels
+         */
+        public int getPaddingRight()
+        {
+            if (!isPaddingResolved())
+            {
+                resolvePadding();
+            }
+            return mPaddingRight;
+        }
+
+        /**
+         * Returns the end padding of this view depending on its resolved layout direction.
+         * If there are inset and enabled scrollbars, this value may include the space
+         * required to display the scrollbars as well.
+         *
+         * @return the end padding in pixels
+         */
+        public int getPaddingEnd()
+        {
+            if (!isPaddingResolved())
+            {
+                resolvePadding();
+            }
+            return (getLayoutDirection() == LAYOUT_DIRECTION_RTL) ?
+                    mPaddingLeft : mPaddingRight;
+        }
+
         Insets computeOpticalInsets()
         {
             return Insets.NONE; // (mBackground == null) ? Insets.NONE : mBackground.getOpticalInsets();
@@ -7748,29 +8754,36 @@ namespace Xamarin_DAW.Skia_UI_Kit
         }
 
 
-        private static void fillRect(SKCanvas canvas, SKPaint paint, int x1, int y1, int x2, int y2) {
-            if (x1 != x2 && y1 != y2) {
-                if (x1 > x2) {
+        private static void fillRect(SKCanvas canvas, SKPaint paint, int x1, int y1, int x2, int y2)
+        {
+            if (x1 != x2 && y1 != y2)
+            {
+                if (x1 > x2)
+                {
                     int tmp = x1; x1 = x2; x2 = tmp;
                 }
-                if (y1 > y2) {
+                if (y1 > y2)
+                {
                     int tmp = y1; y1 = y2; y2 = tmp;
                 }
                 canvas.DrawRect(x1, y1, x2, y2, paint);
             }
         }
 
-        private static int sign(int x) {
+        private static int sign(int x)
+        {
             return (x >= 0) ? 1 : -1;
         }
 
-        private static void drawCorner(SKCanvas c, SKPaint paint, int x1, int y1, int dx, int dy, int lw) {
+        private static void drawCorner(SKCanvas c, SKPaint paint, int x1, int y1, int dx, int dy, int lw)
+        {
             fillRect(c, paint, x1, y1, x1 + dx, y1 + lw * sign(dy));
             fillRect(c, paint, x1, y1, x1 + lw * sign(dx), y1 + dy);
         }
 
         private static void drawRectCorners(SKCanvas canvas, int x1, int y1, int x2, int y2, SKPaint paint,
-                int lineLength, int lineWidth) {
+                int lineLength, int lineWidth)
+        {
             drawCorner(canvas, paint, x1, y1, lineLength, lineLength, lineWidth);
             drawCorner(canvas, paint, x1, y2, lineLength, -lineLength, lineWidth);
             drawCorner(canvas, paint, x2, y1, -lineLength, lineLength, lineWidth);
@@ -7779,7 +8792,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         private static void fillDifference(SKCanvas canvas,
                 int x2, int y2, int x3, int y3,
-                int dx1, int dy1, int dx2, int dy2, SKPaint paint) {
+                int dx1, int dy1, int dx2, int dy2, SKPaint paint)
+        {
             int x1 = x2 - dx1;
             int y1 = y2 - dy1;
 
@@ -7795,14 +8809,16 @@ namespace Xamarin_DAW.Skia_UI_Kit
         /**
          * @hide
          */
-        protected void onDebugDrawMargins(SKCanvas canvas, SKPaint paint) {
-            for (int i = 0; i < getChildCount(); i++) {
+        protected void onDebugDrawMargins(SKCanvas canvas, SKPaint paint)
+        {
+            for (int i = 0; i < getChildCount(); i++)
+            {
                 View c = getChildAt(i);
                 c.mLayoutParams.onDebugDraw(c, canvas, paint);
             }
         }
 
-        private static void drawRect(SKCanvas canvas, SKPaint paint, int x1, int y1, int x2, int y2)
+        private static void drawRect(SKCanvas canvas, SKPaint paint, float x1, float y1, float x2, float y2)
         {
             if (sDebugLines == null)
             {
@@ -7836,7 +8852,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
         /**
          * @hide
          */
-        protected void onDebugDraw(SKCanvas canvas) {
+        protected void onDebugDraw(SKCanvas canvas)
+        {
             SKPaint paint = getDebugPaint();
 
             // Draw optical bounds
@@ -7844,16 +8861,20 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 paint.ColorF = SKColors.Red;
                 paint.Style = SKPaintStyle.Stroke;
 
-                for (int i = 0; i < getChildCount(); i++) {
+                for (int i = 0; i < getChildCount(); i++)
+                {
                     View c = getChildAt(i);
-                    if (c.getVisibility() != View.GONE) {
+                    if (c.getVisibility() != View.GONE)
+                    {
                         Insets insets = c.getOpticalInsets();
+
+                        // make this pixel-perfect since these are 1 pixel wide
 
                         drawRect(canvas, paint,
                                 c.getLeft() + insets.left,
                                 c.getTop() + insets.top,
-                                c.getRight() - insets.right - 1,
-                                c.getBottom() - insets.bottom - 1);
+                                (c.getRight() - insets.right - 1),
+                                (c.getBottom() - insets.bottom - 1));
                     }
                 }
             }
@@ -7873,9 +8894,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
                 int lineLength = dipsToPixels(DEBUG_CORNERS_SIZE_DIP);
                 int lineWidth = dipsToPixels(1);
-                for (int i = 0; i < getChildCount(); i++) {
+                for (int i = 0; i < getChildCount(); i++)
+                {
                     View c = getChildAt(i);
-                    if (c.getVisibility() != View.GONE) {
+                    if (c.getVisibility() != View.GONE)
+                    {
                         drawRectCorners(canvas, c.getLeft(), c.getTop(), c.getRight(), c.getBottom(),
                                 paint, lineLength, lineWidth);
                     }
@@ -8234,7 +9257,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             if (mPreSortedChildren == null)
             {
-                mPreSortedChildren = new (childrenCount);
+                mPreSortedChildren = new(childrenCount);
             }
             else
             {
@@ -8403,24 +9426,24 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //}
             //else
             //{
-                //if ((mPrivateFlags3 & PFLAG3_VIEW_IS_ANIMATING_TRANSFORM) != 0)
-                //{
-                //    // No longer animating: clear out old animation matrix
-                //    mRenderNode.setAnimationMatrix(null);
-                //    mPrivateFlags3 &= ~PFLAG3_VIEW_IS_ANIMATING_TRANSFORM;
-                //}
-                if (!drawingWithRenderNode
-                        && (parentFlags & FLAG_SUPPORT_STATIC_TRANSFORMATIONS) != 0)
+            //if ((mPrivateFlags3 & PFLAG3_VIEW_IS_ANIMATING_TRANSFORM) != 0)
+            //{
+            //    // No longer animating: clear out old animation matrix
+            //    mRenderNode.setAnimationMatrix(null);
+            //    mPrivateFlags3 &= ~PFLAG3_VIEW_IS_ANIMATING_TRANSFORM;
+            //}
+            if (!drawingWithRenderNode
+                    && (parentFlags & FLAG_SUPPORT_STATIC_TRANSFORMATIONS) != 0)
+            {
+                Transformation t = parent.getChildTransformation();
+                bool hasTransform = parent.getChildStaticTransformation(this, t);
+                if (hasTransform)
                 {
-                    Transformation t = parent.getChildTransformation();
-                    bool hasTransform = parent.getChildStaticTransformation(this, t);
-                    if (hasTransform)
-                    {
-                        int transformType = t.getTransformationType();
-                        transformToApply = null; //transformType != Transformation.TYPE_IDENTITY ? t : null;
-                        concatMatrix = false; // (transformType & Transformation.TYPE_MATRIX) != 0;
-                    }
+                    int transformType = t.getTransformationType();
+                    transformToApply = null; //transformType != Transformation.TYPE_IDENTITY ? t : null;
+                    concatMatrix = false; // (transformType & Transformation.TYPE_MATRIX) != 0;
                 }
+            }
             //}
 
             concatMatrix |= !childHasIdentityMatrix;
@@ -8433,7 +9456,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     (parentFlags & (FLAG_SUPPORT_STATIC_TRANSFORMATIONS |
                             FLAG_CLIP_CHILDREN)) == FLAG_CLIP_CHILDREN &&
                     canvas.QuickReject(new SKRect(mLeft, mTop, mRight, mBottom))
-                    //&& (mPrivateFlags & PFLAG_DRAW_ANIMATION) == 0
+                //&& (mPrivateFlags & PFLAG_DRAW_ANIMATION) == 0
                 )
             {
                 mPrivateFlags |= PFLAG_VIEW_QUICK_REJECTED;
@@ -8449,7 +9472,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 mPrivateFlags &= ~PFLAG_INVALIDATED;
             }
 
-            RenderNode renderNode = null;
+            SKPicture renderNode = null;
             SKBitmap cache = null;
             //int layerType = getLayerType(); // TODO: signify cache state with just 'cache' local
             //if (layerType == LAYER_TYPE_SOFTWARE || !drawingWithRenderNode)
@@ -8522,7 +9545,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             if (transformToApply != null
                     || alpha < 1
                     || !hasIdentityMatrix()
-                    //|| (mPrivateFlags3 & PFLAG3_VIEW_IS_ANIMATING_ALPHA) != 0
+                //|| (mPrivateFlags3 & PFLAG3_VIEW_IS_ANIMATING_ALPHA) != 0
                 )
             {
                 if (transformToApply != null || !childHasIdentityMatrix)
@@ -8638,8 +9661,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
                 //if (mClipBounds != null)
                 //{
-                    // clip bounds ignore scroll
-                    //canvas.clipRect(mClipBounds);
+                //    clip bounds ignore scroll
+                //    canvas.clipRect(mClipBounds);
                 //}
             }
 
@@ -8649,6 +9672,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     mPrivateFlags &= ~PFLAG_DIRTY_MASK;
                     //((RecordingCanvas)canvas).drawRenderNode(renderNode);
+                    canvas.DrawPicture(renderNode, 0, 0);
                 }
                 else
                 {
@@ -8750,7 +9774,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
          * (but after its own view has been drawn).
          * @param canvas the canvas on which to draw the view
          */
-        protected void dispatchDraw(SKCanvas canvas) {
+        protected void dispatchDraw(SKCanvas canvas)
+        {
             int childrenCount = mChildrenCount;
             View[] children = mChildren;
             int flags = mGroupFlags;
@@ -8782,7 +9807,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             int clipSaveCount = 0;
             bool clipToPadding = (flags & CLIP_TO_PADDING_MASK) == CLIP_TO_PADDING_MASK;
-            if (clipToPadding) {
+            if (clipToPadding)
+            {
                 clipSaveCount = canvas.Save();
                 canvas.ClipRect(mScrollX + mPaddingLeft, mScrollY + mPaddingTop,
                         mScrollX + mRight - mLeft - mPaddingRight,
@@ -8866,18 +9892,21 @@ namespace Xamarin_DAW.Skia_UI_Kit
             // no Z support
             //canvas.disableZ();
 
-            if (isShowingLayoutBounds()) {
+            if (isShowingLayoutBounds())
+            {
                 onDebugDraw(canvas);
             }
 
-            if (clipToPadding) {
+            if (clipToPadding)
+            {
                 canvas.RestoreToCount(clipSaveCount);
             }
 
             // mGroupFlags might have been updated by drawChild()
             flags = mGroupFlags;
 
-            if ((flags & FLAG_INVALIDATE_REQUIRED) == FLAG_INVALIDATE_REQUIRED) {
+            if ((flags & FLAG_INVALIDATE_REQUIRED) == FLAG_INVALIDATE_REQUIRED)
+            {
                 invalidate(true);
             }
 
@@ -9152,7 +10181,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             int childCount = getChildCount();
 
-            if (childCount > 0) {
+            if (childCount > 0)
+            {
 
                 Log.d(VIEW_LOG_TAG, output);
 
@@ -9185,6 +10215,86 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 spaces.Append(' ').Append(' ');
             }
             return spaces.ToString();
+        }
+
+        /**
+         * <p>Return the offset of the widget's text baseline from the widget's top
+         * boundary. If this widget does not support baseline alignment, this
+         * method returns -1. </p>
+         *
+         * @return the offset of the baseline within the widget's bounds or -1
+         *         if baseline alignment is not supported
+         */
+        public int getBaseline()
+        {
+            return -1;
+        }
+
+        /**
+         * Returns whether the view hierarchy is currently undergoing a layout pass. This
+         * information is useful to avoid situations such as calling {@link #requestLayout()} during
+         * a layout pass.
+         *
+         * @return whether the view hierarchy is currently undergoing a layout pass
+         */
+        public bool isInLayout()
+        {
+            ViewRootImpl viewRoot = getViewRootImpl();
+            return (viewRoot != null && viewRoot.isInLayout());
+        }
+
+        /**
+         * Call this when something has changed which has invalidated the
+         * layout of this view. This will schedule a layout pass of the view
+         * tree. This should not be called while the view hierarchy is currently in a layout
+         * pass ({@link #isInLayout()}. If layout is happening, the request may be honored at the
+         * end of the current layout pass (and then layout will run again) or after the current
+         * frame is drawn and the next layout occurs.
+         *
+         * <p>Subclasses which override this method should call the superclass method to
+         * handle possible request-during-layout errors correctly.</p>
+         */
+        public void requestLayout()
+        {
+            if (mMeasureCache != null) mMeasureCache.clear();
+
+            if (mAttachInfo != null && mAttachInfo.mViewRequestingLayout == null)
+            {
+                // Only trigger request-during-layout logic if this is the view requesting it,
+                // not the views in its parent hierarchy
+                ViewRootImpl viewRoot = getViewRootImpl();
+                if (viewRoot != null && viewRoot.isInLayout())
+                {
+                    if (!viewRoot.requestLayoutDuringLayout(this))
+                    {
+                        return;
+                    }
+                }
+                mAttachInfo.mViewRequestingLayout = this;
+            }
+
+            mPrivateFlags |= PFLAG_FORCE_LAYOUT;
+            mPrivateFlags |= PFLAG_INVALIDATED;
+
+            if (mParent != null && !mParent.isLayoutRequested())
+            {
+                mParent.requestLayout();
+            }
+            if (mAttachInfo != null && mAttachInfo.mViewRequestingLayout == this)
+            {
+                mAttachInfo.mViewRequestingLayout = null;
+            }
+        }
+
+        /**
+         * <p>Indicates whether or not this view's layout will be requested during
+         * the next hierarchy layout pass.</p>
+         *
+         * @return true if the layout will be forced during next layout pass
+         */
+        public bool isLayoutRequested()
+        {
+            return (mPrivateFlags & PFLAG_FORCE_LAYOUT) == PFLAG_FORCE_LAYOUT;
         }
     }
 }
