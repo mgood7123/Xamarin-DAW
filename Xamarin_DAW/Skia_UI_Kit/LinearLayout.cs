@@ -173,6 +173,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             setDividerDrawable(null);
 
             mAllowInconsistentMeasurement = false;
+            sCompatibilityDone = true;
         }
 
         /**
@@ -329,12 +330,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     bottom = getHeight() - getPaddingBottom() - mDividerHeight;
                 } else {
                     LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                    int bottom_margin = 0;
-                    if (lp is MarginLayoutParams)
-                    {
-                        bottom_margin = ((MarginLayoutParams)lp).bottomMargin;
-                    }
-                    bottom = child.getBottom() + bottom_margin;
+                    bottom = child.getBottom() + lp.bottomMargin;
                 }
                 drawHorizontalDivider(canvas, bottom);
             }
@@ -362,18 +358,11 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 if (child != null && child.getVisibility() != GONE) {
                     if (hasDividerBeforeChildAt(i)) {
                         LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                        int left_margin = 0;
-                        int right_margin = 0;
-                        if (lp is MarginLayoutParams)
-                        {
-                            left_margin = ((MarginLayoutParams)lp).leftMargin;
-                            right_margin = ((MarginLayoutParams)lp).rightMargin;
-                        }
                         int position;
                         if (isLayoutRtl_) {
-                            position = child.getRight() + right_margin;
+                            position = child.getRight() + lp.rightMargin;
                         } else {
-                            position = child.getLeft() - left_margin - mDividerWidth;
+                            position = child.getLeft() - lp.rightMargin - mDividerWidth;
                         }
                         drawVerticalDivider(canvas, position);
                     }
@@ -391,17 +380,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     }
                 } else {
                     LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                    int left_margin = 0;
-                    int right_margin = 0;
-                    if (lp is MarginLayoutParams)
-                    {
-                        left_margin = ((MarginLayoutParams)lp).leftMargin;
-                        right_margin = ((MarginLayoutParams)lp).rightMargin;
-                    }
                     if (isLayoutRtl_) {
-                        position = child.getLeft() - left_margin - mDividerWidth;
+                        position = child.getLeft() - lp.leftMargin - mDividerWidth;
                     } else {
-                        position = child.getRight() + right_margin;
+                        position = child.getRight() + lp.rightMargin;
                     }
                 }
                 drawVerticalDivider(canvas, position);
@@ -521,7 +503,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 }
             }
 
-            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) child.getLayoutParams();
+            LayoutParams lp = (LayoutParams) child.getLayoutParams();
             return childTop + lp.topMargin + childBaseline;
         }
 
@@ -601,7 +583,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             mWeightSum = Math.Max(0.0f, weightSum);
         }
 
-        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        protected override void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             if (mOrientation == VERTICAL) {
                 measureVertical(widthMeasureSpec, heightMeasureSpec);
             } else {

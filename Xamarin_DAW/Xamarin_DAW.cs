@@ -334,14 +334,27 @@ namespace Xamarin_DAW
 
                 var box_a = new Skia_UI_Kit.Box()
                 {
+                    paint = new SKPaint() { Color = new SKColor(50, 50, 150) }
+                };
+
+                var box_b = new Skia_UI_Kit.Box()
+                {
                     paint = new SKPaint() { Color = new SKColor(50, 50, 50) }
                 };
 
-                //Skia_UI_Kit.LinearLayout linearLayout = new();
+                var box_c = new Skia_UI_Kit.Box()
+                {
+                    paint = new SKPaint() { Color = new SKColor(50, 50, 150) }
+                };
 
-                //linearLayout.setOrientation(Skia_UI_Kit.LinearLayout.VERTICAL);
+                Skia_UI_Kit.LinearLayout linearLayout = new();
 
-                //linearLayout.addView();
+                linearLayout.setOrientation(Skia_UI_Kit.LinearLayout.VERTICAL);
+
+                linearLayout.addView(box_a, new Skia_UI_Kit.LinearLayout.LayoutParams(Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, 1.0f));
+                linearLayout.addView(box_b, new Skia_UI_Kit.LinearLayout.LayoutParams(Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, 1.0f));
+                linearLayout.addView(box_c, new Skia_UI_Kit.LinearLayout.LayoutParams(Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, 1.0f));
+
                 //linearLayout.addView(new Skia_UI_Kit.Box()
                 //{
                 //    mLayoutParams = new()
@@ -352,7 +365,7 @@ namespace Xamarin_DAW
                 //    paint = new SKPaint() { Color = new SKColor(50, 50, 178) }
                 //});
                 //box_a.setTranslationX(100);
-                SetContentView(box_a, new Skia_UI_Kit.View.LayoutParams(200, 200));
+                SetContentView(linearLayout);
             }
         }
 

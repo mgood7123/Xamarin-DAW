@@ -87,9 +87,6 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         public LayoutParams mLayoutParams { get; set; }
 
-        public int MeasuredWidth { get; protected set; }
-        public int MeasuredHeight { get; protected set; }
-
         private int l = 0, t = 0, r = 0, b = 0;
 
         /**
@@ -2292,7 +2289,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             return MeasureSpec.makeMeasureSpec(resultSize, resultMode);
         }
 
-        public virtual void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
+        protected virtual void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
         {
             int viewWidth = getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec);
             int viewHeight = getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec);
@@ -5939,6 +5936,8 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     //else
                     //{
                     //computeScroll();
+                    int r = canvas.Save();
+                    canvas.Translate(getX(), getY());
 
                     canvas.Translate(-mScrollX, -mScrollY);
 
@@ -5963,6 +5962,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     {
                         draw(canvas);
                     }
+                    canvas.RestoreToCount(r);
                     //}
                 }
                 finally
@@ -9027,6 +9027,17 @@ namespace Xamarin_DAW.Skia_UI_Kit
         }
 
 
+        /**
+         * The visual x position of this view, in pixels. This is equivalent to the
+         * {@link #setTranslationX(float) translationX} property plus the current
+         * {@link #getLeft() left} property.
+         *
+         * @return The visual x position of this view, in pixels.
+         */
+        public float getX()
+        {
+            return mLeft + getTranslationX();
+        }
 
 
         /**
