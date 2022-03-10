@@ -334,11 +334,6 @@ namespace Xamarin_DAW
 
                 var box_a = new Skia_UI_Kit.Box()
                 {
-                    mLayoutParams = new()
-                    {
-                        width = 40,
-                        height = 40
-                    },
                     paint = new SKPaint() { Color = new SKColor(50, 50, 50) }
                 };
 
@@ -356,7 +351,8 @@ namespace Xamarin_DAW
                 //    },
                 //    paint = new SKPaint() { Color = new SKColor(50, 50, 178) }
                 //});
-                SetContentView(box_a);
+                //box_a.setTranslationX(100);
+                SetContentView(box_a, new Skia_UI_Kit.View.LayoutParams(200, 200));
             }
         }
 

@@ -28,6 +28,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
         public Application()
         {
             mAttachInfo = new();
+            mAttachInfo.mViewRootImpl = new();
             mAttachInfo.mViewRootImpl.SetApplication(this);
         }
 

@@ -191,7 +191,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 		 *            (count >> 2).
 		 * @param paint The paint used to draw the points
 		 */
-		static public void drawLines(this SKCanvas canvas, float[] points, int offset, int count, SKPaint paint) {
+		public static void DrawLines(this SKCanvas canvas, float[] points, int offset, int count, SKPaint paint) {
 			if ((offset | count) < 0 || count < 2 || offset + count > points.Length)
 			{
 				return;
@@ -219,7 +219,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
 		public static void DrawLines(this SKCanvas canvas, float[] points, SKPaint paint)
 		{
-			canvas.drawLines(points, 0, points.Length, paint);
+			canvas.DrawLines(points, 0, points.Length, paint);
+		}
+
+		public static void DrawRectCoords(this SKCanvas canvas, float x1, float y1, float x2, float y2, SKPaint paint)
+		{
+			// avoid allocating a new SKRect
+			canvas.DrawRect(x1, y1, x2 - x1, y2 - y1, paint);
 		}
 	}
 }

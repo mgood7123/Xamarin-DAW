@@ -39,7 +39,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         internal bool hasContent() => mContentParent != null;
 
-        private SKCanvas drawingCanvas;
+        internal SKCanvas drawingCanvas;
 
         public void draw(SKCanvas canvas)
         {
@@ -425,8 +425,12 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 mLayoutRequested = true;
                 desiredWindowWidth = canvasWidth;
                 desiredWindowHeight = canvasHeight;
-                if (mAttachInfo == null) mAttachInfo = new();
-                mContentParent.dispatchAttachedToWindow(mAttachInfo, 0);
+                if (mAttachInfo == null)
+                {
+                    mAttachInfo = new();
+                    mAttachInfo.mViewRootImpl = this;
+                }
+                mView.dispatchAttachedToWindow(mAttachInfo, 0);
             }
             else
             {

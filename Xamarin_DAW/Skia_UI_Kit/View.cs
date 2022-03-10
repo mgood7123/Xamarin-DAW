@@ -295,24 +295,34 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
         internal class AttachInfo
         {
-            internal ViewRootImpl mViewRootImpl = new();
+            public AttachInfo()
+            {
+                mDebugLayout = true; // draw layout bounds
+
+                mRecomputeGlobalAttributes = false;
+                mHasWindowFocus = true;
+                mApplicationScale = 1.0f;
+                mScalingRequired = false;
+                mHardwareAccelerated = true;
+            }
+            internal ViewRootImpl mViewRootImpl;
             internal bool mInTouchMode;
             internal bool mViewVisibilityChanged;
-            internal bool mDebugLayout = true; // draw layout bounds
+            internal bool mDebugLayout;
             internal List<View> mScrollContainers;
             internal int mWindowVisibility;
             internal int mWindowLeft;
             internal int mWindowTop;
             internal int mWindowBottom;
             internal int mWindowRight;
-            internal bool mRecomputeGlobalAttributes = false;
-            internal bool mHasWindowFocus = true;
+            internal bool mRecomputeGlobalAttributes;
+            internal bool mHasWindowFocus;
             internal List<object> mPendingAnimatingRenderNodes;
             internal bool mViewScrollChanged;
-            internal float mApplicationScale = 1.0f;
-            internal bool mScalingRequired = false;
+            internal float mApplicationScale;
+            internal bool mScalingRequired;
             internal int mDrawingTime;
-            internal bool mHardwareAccelerated = true;
+            internal bool mHardwareAccelerated;
 
             /**
              * Used to track which View originated a requestLayout() call, used when
@@ -571,11 +581,22 @@ namespace Xamarin_DAW.Skia_UI_Kit
         }
 
         /**
+         * Return the visibility value of the least visible component passed.
+         */
+        int combineVisibility(int vis1, int vis2)
+        {
+            // This works because VISIBLE < INVISIBLE < GONE.
+            return Math.Max(vis1, vis2);
+        }
+
+        /**
          * @param info the {@link android.view.View.AttachInfo} to associated with
          *        this view
          */
         internal void dispatchAttachedToWindow(AttachInfo info, int visibility)
         {
+            mGroupFlags |= FLAG_PREVENT_DISPATCH_ATTACHED_TO_WINDOW;
+
             mAttachInfo = info;
             //if (mOverlay != null)
             //{
@@ -647,10 +668,70 @@ namespace Xamarin_DAW.Skia_UI_Kit
 
             //notifyEnterOrExitForAutoFillIfNeeded(true);
             //notifyAppearedOrDisappearedForContentCaptureIfNeeded(true);
+
+            mGroupFlags &= ~FLAG_PREVENT_DISPATCH_ATTACHED_TO_WINDOW;
+
+            int count = mChildrenCount;
+            View[] children = mChildren;
+            for (int i = 0; i < count; i++)
+            {
+                View child = children[i];
+                child.dispatchAttachedToWindow(info,
+                        combineVisibility(visibility, child.getVisibility()));
+            }
+            //final int transientCount = mTransientIndices == null ? 0 : mTransientIndices.size();
+            //for (int i = 0; i < transientCount; ++i)
+            //{
+            //    View view = mTransientViews.get(i);
+            //    view.dispatchAttachedToWindow(info,
+            //            combineVisibility(visibility, view.getVisibility()));
+            //}
         }
+
+        // Whether any layout calls have actually been suppressed while mSuppressLayout
+        // has been true. This tracks whether we need to issue a requestLayout() when
+        // layout is later re-enabled.
+        private bool mLayoutCalledWhileSuppressed = false;
 
         void dispatchDetachedFromWindow()
         {
+            // If we still have a touch target, we are still in the process of
+            // dispatching motion events to a child; we need to get rid of that
+            // child to avoid dispatching events to it after the window is torn
+            // down. To make sure we keep the child in a consistent state, we
+            // first send it an ACTION_CANCEL motion event.
+            //cancelAndClearTouchTargets(null);
+
+            // Similarly, set ACTION_EXIT to all hover targets and clear them.
+            //exitHoverTargets();
+            //exitTooltipHoverTargets();
+
+            // In case view is detached while transition is running
+            mLayoutCalledWhileSuppressed = false;
+
+            // Tear down our drag tracking
+            //mChildrenInterestedInDrag = null;
+            //mIsInterestedInDrag = false;
+            //if (mCurrentDragStartEvent != null)
+            //{
+            //    mCurrentDragStartEvent.recycle();
+            //    mCurrentDragStartEvent = null;
+            //}
+
+            int count = mChildrenCount;
+            View[] children = mChildren;
+            for (int i = 0; i < count; i++)
+            {
+                children[i].dispatchDetachedFromWindow();
+            }
+            //clearDisappearingChildren();
+            //final int transientCount = mTransientViews == null ? 0 : mTransientIndices.size();
+            //for (int i = 0; i < transientCount; ++i)
+            //{
+            //    View view = mTransientViews.get(i);
+            //    view.dispatchDetachedFromWindow();
+            //}
+
             AttachInfo info = mAttachInfo;
             if (info != null)
             {
@@ -705,6 +786,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
             //}
 
             //notifyEnterOrExitForAutoFillIfNeeded(false);
+
         }
 
         /**
@@ -5835,11 +5917,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 //renderNode.clearStretch();
 
                 if (mRenderNode != null) mRenderNode.Dispose();
-                SKPictureRecorder pictureRecorder = new SKPictureRecorder();
+                //SKPictureRecorder pictureRecorder = new SKPictureRecorder();
 
-                SKCanvas canvas = pictureRecorder.BeginRecording(new SKRect(0, 0, width, height));
-                canvas.setIsHardwareAccelerated(true);
-                canvas.setWidthHeight(width, height);
+                SKCanvas canvas = mAttachInfo.mViewRootImpl.drawingCanvas;
+
+                //SKCanvas canvas = pictureRecorder.BeginRecording(new SKRect(0, 0, width, height));
+                //canvas.setIsHardwareAccelerated(true);
+                //canvas.setWidthHeight(width, height);
 
                 try
                 {
@@ -5857,6 +5941,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     //computeScroll();
 
                     canvas.Translate(-mScrollX, -mScrollY);
+
                     mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
                     mPrivateFlags &= ~PFLAG_DIRTY_MASK;
 
@@ -5882,7 +5967,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 }
                 finally
                 {
-                    mRenderNode = pictureRecorder.EndRecording();
+                    //mRenderNode = pictureRecorder.EndRecording();
                     setDisplayListProperties(mRenderNode);
                 }
             }
@@ -8452,6 +8537,13 @@ namespace Xamarin_DAW.Skia_UI_Kit
         internal const int DUPLICATE_PARENT_STATE = 0x00400000;
 
         /**
+         * When set, this ViewGroup will not dispatch onAttachedToWindow calls
+         * to children when adding new views. This is used to prevent multiple
+         * onAttached calls when a ViewGroup adds children in its own onAttached method.
+         */
+        private const int FLAG_PREVENT_DISPATCH_ATTACHED_TO_WINDOW = 0x400000;
+
+        /**
          * When set, this group will go through its list of children to notify them of
          * any drawable state change.
          */
@@ -8521,17 +8613,17 @@ namespace Xamarin_DAW.Skia_UI_Kit
             }
 
             AttachInfo ai = mAttachInfo;
-            //if (ai != null && (mGroupFlags & FLAG_PREVENT_DISPATCH_ATTACHED_TO_WINDOW) == 0)
-            //{
-            //    bool lastKeepOn = ai.mKeepScreenOn;
-            //    ai.mKeepScreenOn = false;
-            //    child.dispatchAttachedToWindow(mAttachInfo, (mViewFlags & VISIBILITY_MASK));
-            //    if (ai.mKeepScreenOn)
-            //    {
-            //        needGlobalAttributesUpdate(true);
-            //    }
-            //    ai.mKeepScreenOn = lastKeepOn;
-            //}
+            if (ai != null && (mGroupFlags & FLAG_PREVENT_DISPATCH_ATTACHED_TO_WINDOW) == 0)
+            {
+                //bool lastKeepOn = ai.mKeepScreenOn;
+                //ai.mKeepScreenOn = false;
+                child.dispatchAttachedToWindow(mAttachInfo, (mViewFlags & VISIBILITY_MASK));
+                //if (ai.mKeepScreenOn)
+                //{
+                    //needGlobalAttributesUpdate(true);
+                //}
+                //ai.mKeepScreenOn = lastKeepOn;
+            }
 
             if (child.isLayoutDirectionInherited())
             {
@@ -8766,7 +8858,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     int tmp = y1; y1 = y2; y2 = tmp;
                 }
-                canvas.DrawRect(x1, y1, x2, y2, paint);
+                canvas.DrawRectCoords(x1, y1, x2, y2, paint);
             }
         }
 
@@ -8867,8 +8959,6 @@ namespace Xamarin_DAW.Skia_UI_Kit
                     if (c.getVisibility() != View.GONE)
                     {
                         Insets insets = c.getOpticalInsets();
-
-                        // make this pixel-perfect since these are 1 pixel wide
 
                         drawRect(canvas, paint,
                                 c.getLeft() + insets.left,
@@ -9672,7 +9762,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     mPrivateFlags &= ~PFLAG_DIRTY_MASK;
                     //((RecordingCanvas)canvas).drawRenderNode(renderNode);
-                    canvas.DrawPicture(renderNode, 0, 0);
+                    //canvas.DrawPicture(renderNode, 0, 0);
                 }
                 else
                 {

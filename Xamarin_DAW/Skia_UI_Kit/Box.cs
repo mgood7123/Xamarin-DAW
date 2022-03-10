@@ -15,7 +15,10 @@ namespace Xamarin_DAW.Skia_UI_Kit
         protected override void onDraw(SKCanvas canvas)
         {
             Console.WriteLine("Box OnPaintSurface");
-            canvas.DrawRect(new SKRect(0, 0, canvas.getWidth(), canvas.getHeight()), paint);
+
+            // per android, canvas.getWidth/getHeight return screen width/height and NOT view width/height
+
+            canvas.DrawRect(new SKRect(0, 0, getWidth(), getHeight()), paint);
         }
     }
 }
