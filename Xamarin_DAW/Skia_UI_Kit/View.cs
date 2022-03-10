@@ -5914,13 +5914,12 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 //renderNode.clearStretch();
 
                 if (mRenderNode != null) mRenderNode.Dispose();
-                //SKPictureRecorder pictureRecorder = new SKPictureRecorder();
+                SKPictureRecorder pictureRecorder = new SKPictureRecorder();
 
-                SKCanvas canvas = mAttachInfo.mViewRootImpl.drawingCanvas;
-
-                //SKCanvas canvas = pictureRecorder.BeginRecording(new SKRect(0, 0, width, height));
-                //canvas.setIsHardwareAccelerated(true);
-                //canvas.setWidthHeight(width, height);
+                //SKCanvas canvas = mAttachInfo.mViewRootImpl.drawingCanvas;
+                SKCanvas canvas = pictureRecorder.BeginRecording(new SKRect(0, 0, width, height));
+                canvas.setIsHardwareAccelerated(true);
+                canvas.setWidthHeight(width, height);
 
                 try
                 {
@@ -5967,7 +5966,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 }
                 finally
                 {
-                    //mRenderNode = pictureRecorder.EndRecording();
+                    mRenderNode = pictureRecorder.EndRecording();
                     setDisplayListProperties(mRenderNode);
                 }
             }
@@ -9773,7 +9772,7 @@ namespace Xamarin_DAW.Skia_UI_Kit
                 {
                     mPrivateFlags &= ~PFLAG_DIRTY_MASK;
                     //((RecordingCanvas)canvas).drawRenderNode(renderNode);
-                    //canvas.DrawPicture(renderNode, 0, 0);
+                    canvas.DrawPicture(renderNode, 0, 0);
                 }
                 else
                 {
