@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
-namespace Xamarin_DAW.Android
+namespace Xamarin_DAW.Android_
 {
     [Activity(
         Label = "@string/app_name",

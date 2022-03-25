@@ -1,0 +1,1 @@
+msbuild -t:Xamarin_DAW -m && cp -v Xamarin_DAW/obj/Debug/netstandard2.1/Xamarin_DAW.{pdb,dll} ./Xamarin_DAW.MacOS/bin/Debug/Xamarin\ DAW.app/Contents/MonoBundle/ && ./Xamarin_DAW.MacOS/bin/Debug/Xamarin\ DAW.app/Contents/MacOS/Xamarin\ DAW

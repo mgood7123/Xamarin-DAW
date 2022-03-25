@@ -16,7 +16,6 @@
   <ItemGroup>
     <None Remove="Xamarin.Forms" />
     <None Remove="UI\" />
-    <None Remove="UI\Utils\" />
     <None Remove="Skia_UI_Kit\" />
   </ItemGroup>
   <ItemGroup>
@@ -27,7 +26,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="UI\" />
-    <Folder Include="UI\Utils\" />
     <Folder Include="Skia_UI_Kit\" />
   </ItemGroup>
 </Project>

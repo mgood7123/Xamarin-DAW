@@ -1,0 +1,1 @@
+msbuild -p:AndroidBuildApplicationPackage=true -t:Xamarin_DAW_Android -m && adb install --no-streaming ./Xamarin_DAW.Android/bin/Debug/smallville7123.xamarin_daw-Signed.apk && echo "Logcat Started" && adb logcat -c && adb logcat -v color -s mono-stdout -s MonoDroid

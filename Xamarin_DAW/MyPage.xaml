@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:Xamarin_DAW_UI="clr-namespace:Xamarin_DAW.UI"
     xmlns:Xamarin_DAW="clr-namespace:Xamarin_DAW"
-    xmlns:skia_ui_kit="clr-namespace:Xamarin_DAW.Skia_UI_Kit"
+    xmlns:AndroidUI="clr-namespace:Xamarin_DAW.AndroidUI"
     x:Class="Xamarin_DAW.MyPage"
 
     BackgroundColor="#2C3E50"
@@ -12,7 +12,7 @@
     <!--LineageOS color code: #167C80-->
     <!--Xamarin   color code: #2C3E50-->
     <ContentPage.Content>
-        <skia_ui_kit:SkiaViewHost/>
+        <AndroidUI:SkiaViewHost/>
         <!--<Xamarin_DAW_UI:WindowManager
             BackgroundColor="Green"
             VerticalOptions="FillAndExpand"

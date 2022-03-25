@@ -120,7 +120,6 @@
     <Compile Include="ViewController.designer.cs">
       <DependentUpon>ViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="MultiTouchFrameRenderer.cs" />
     <Compile Include="SkiaHostViewRenderer.cs" />
   </ItemGroup>
   <ItemGroup>

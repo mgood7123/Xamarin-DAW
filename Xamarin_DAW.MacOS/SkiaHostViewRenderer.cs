@@ -4,7 +4,7 @@ using CoreGraphics;
 using Foundation;
 using SkiaSharp.Views.Forms;
 using Xamarin.Forms;
-using Xamarin_DAW.Skia_UI_Kit;
+using Xamarin_DAW.AndroidUI;
 
 [assembly: ExportRenderer(typeof(SkiaViewHost), typeof(Xamarin_DAW.MacOS.SkiaViewHostRenderer))]
 namespace Xamarin_DAW.MacOS
@@ -42,16 +42,17 @@ namespace Xamarin_DAW.MacOS
                     //flip Y so that 0 is at top instead of bottom
                     fingerLocationInTrackPad.Y = 1.0f - fingerLocationInTrackPad.Y;
 
-                    fingerLocationInTrackPad.X *= viewRect.Width;
-                    fingerLocationInTrackPad.Y *= viewRect.Height;
-
+                    if (frame.multiTouch.tryForcePump())
+                    {
+                        frame.onTouch();
+                    }
                     frame.multiTouch.addTouch(
                         touch.Identity,
                         (float)mousePoint.X,
                         (float)mousePoint.Y,
                         (float)fingerLocationInTrackPad.X, (float)fingerLocationInTrackPad.Y
                     );
-                    frame.OnTouch();
+                    frame.onTouch();
                 }
             }
         }
@@ -82,16 +83,15 @@ namespace Xamarin_DAW.MacOS
                     //flip Y so that 0 is at top instead of bottom
                     fingerLocationInTrackPad.Y = 1.0f - fingerLocationInTrackPad.Y;
 
-                    fingerLocationInTrackPad.X *= viewRect.Width;
-                    fingerLocationInTrackPad.Y *= viewRect.Height;
-
-                    frame.multiTouch.moveTouch(
+                    if (frame.multiTouch.moveTouchBatched(
                         touch.Identity,
                         (float)mousePoint.X,
                         (float)mousePoint.Y,
                         (float)fingerLocationInTrackPad.X, (float)fingerLocationInTrackPad.Y
-                    );
-                    frame.OnTouch();
+                    ))
+                    {
+                        frame.onTouch();
+                    }
                 }
             }
         }
@@ -122,16 +122,17 @@ namespace Xamarin_DAW.MacOS
                     //flip Y so that 0 is at top instead of bottom
                     fingerLocationInTrackPad.Y = 1.0f - fingerLocationInTrackPad.Y;
 
-                    fingerLocationInTrackPad.X *= viewRect.Width;
-                    fingerLocationInTrackPad.Y *= viewRect.Height;
-
+                    if (frame.multiTouch.tryForcePump())
+                    {
+                        frame.onTouch();
+                    }
                     frame.multiTouch.removeTouch(
                         touch.Identity,
                         (float)mousePoint.X,
                         (float)mousePoint.Y,
                         (float)fingerLocationInTrackPad.X, (float)fingerLocationInTrackPad.Y
                     );
-                    frame.OnTouch();
+                    frame.onTouch();
                 }
             }
         }
@@ -162,16 +163,17 @@ namespace Xamarin_DAW.MacOS
                     //flip Y so that 0 is at top instead of bottom
                     fingerLocationInTrackPad.Y = 1.0f - fingerLocationInTrackPad.Y;
 
-                    fingerLocationInTrackPad.X *= viewRect.Width;
-                    fingerLocationInTrackPad.Y *= viewRect.Height;
-
+                    if (frame.multiTouch.tryForcePump())
+                    {
+                        frame.onTouch();
+                    }
                     frame.multiTouch.cancelTouch(
                         touch.Identity,
                         (float)mousePoint.X,
                         (float)mousePoint.Y,
                         (float)fingerLocationInTrackPad.X, (float)fingerLocationInTrackPad.Y
                     );
-                    frame.OnTouch();
+                    frame.onTouch();
                 }
             }
         }

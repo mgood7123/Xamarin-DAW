@@ -325,47 +325,60 @@ namespace Xamarin_DAW
 
         static PluginManager pluginManager = new();
 
-        Skia_UI_Kit.Application application;
+        AndroidUI.Application application;
 
-        class MyApp : Skia_UI_Kit.Application
+        class TouchInfoView : AndroidUI.Topten_RichTextKit_TextView
+        {
+            public TouchInfoView() : base()
+            {
+                setText("TouchInfoView");
+            }
+
+            public override bool onTouch(AndroidUI.Touch touch)
+            {
+                Console.WriteLine("onTouch invalidating");
+                string s = touch.ToString();
+                Console.WriteLine("onTouch: " + s);
+                setText(s);
+                invalidate();
+                return true;
+            }
+        }
+
+        class MyApp : AndroidUI.Application
         {
             public override void OnCreate()
             {
 
-                var box_a = new Skia_UI_Kit.Box()
-                {
-                    paint = new SKPaint() { Color = new SKColor(50, 50, 150) }
-                };
-
-                var box_b = new Skia_UI_Kit.Box()
-                {
-                    paint = new SKPaint() { Color = new SKColor(50, 50, 50) }
-                };
-
-                var box_c = new Skia_UI_Kit.Box()
-                {
-                    paint = new SKPaint() { Color = new SKColor(50, 50, 150) }
-                };
-
-                Skia_UI_Kit.LinearLayout linearLayout = new();
-
-                linearLayout.setOrientation(Skia_UI_Kit.LinearLayout.VERTICAL);
-
-                linearLayout.addView(box_a, new Skia_UI_Kit.LinearLayout.LayoutParams(Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, 1.0f));
-                linearLayout.addView(box_b, new Skia_UI_Kit.LinearLayout.LayoutParams(Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, 1.0f));
-                linearLayout.addView(box_c, new Skia_UI_Kit.LinearLayout.LayoutParams(Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, Skia_UI_Kit.View.LayoutParams.MATCH_PARENT, 1.0f));
-
-                //linearLayout.addView(new Skia_UI_Kit.Box()
+                //var box_a = new AndroidUI.Box()
                 //{
-                //    mLayoutParams = new()
-                //    {
-                //        width = 40,
-                //        height = 40
-                //    },
-                //    paint = new SKPaint() { Color = new SKColor(50, 50, 178) }
-                //});
-                //box_a.setTranslationX(100);
+                //    paint = new SKPaint() { Color = new SKColor(50, 50, 150) }
+                //};
+
+                //var text = new AndroidUI.Topten_RichTextKit_TextView();
+                //text.setText("TextView!");
+                //text.setTextColor(SKColors.Aqua);
+                //text.setTextSize(40);
+
+                //var box_c = new AndroidUI.Box()
+                //{
+                //    paint = new SKPaint() { Color = new SKColor(50, 50, 150) }
+                //};
+
+                AndroidUI.LinearLayout linearLayout = new();
+
+                linearLayout.setOrientation(AndroidUI.LinearLayout.HORIZONTAL);
+
+                //linearLayout.addView(box_a, new AndroidUI.LinearLayout.LayoutParams(AndroidUI.View.LayoutParams.MATCH_PARENT, AndroidUI.View.LayoutParams.MATCH_PARENT, 1.0f));
+                //linearLayout.addView(text, new AndroidUI.LinearLayout.LayoutParams(AndroidUI.View.LayoutParams.MATCH_PARENT, AndroidUI.View.LayoutParams.MATCH_PARENT, 1.0f));
+                //linearLayout.addView(box_c, new AndroidUI.LinearLayout.LayoutParams(AndroidUI.View.LayoutParams.MATCH_PARENT, AndroidUI.View.LayoutParams.MATCH_PARENT, 1.0f));
+
+                linearLayout.addView(new TouchInfoView(), new AndroidUI.LinearLayout.LayoutParams(AndroidUI.View.LayoutParams.MATCH_PARENT, AndroidUI.View.LayoutParams.MATCH_PARENT, 1.0f));
+                linearLayout.addView(new TouchInfoView(), new AndroidUI.LinearLayout.LayoutParams(AndroidUI.View.LayoutParams.MATCH_PARENT, AndroidUI.View.LayoutParams.MATCH_PARENT, 1.0f));
+
                 SetContentView(linearLayout);
+
+                //SetContentView(new TouchInfoView());
             }
         }
 
@@ -386,7 +399,7 @@ namespace Xamarin_DAW
             //MainPage = new MyPage();
             MainPage = new MyPage()
             {
-                Content = new Skia_UI_Kit.SkiaViewHost
+                Content = new AndroidUI.SkiaViewHost
                 {
                     Application = application
                 }
